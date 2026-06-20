@@ -1,0 +1,29 @@
+# YouTube Bot — Python Dependencies
+# Install: pip install -r requirements.txt
+
+# AI / Script
+requests==2.31.0
+groq==0.9.0
+
+# Text-to-Speech
+edge-tts==6.1.9
+
+# Video editing
+moviepy==1.0.3
+imageio==2.34.0
+imageio-ffmpeg==0.4.9
+
+# Thumbnail
+Pillow==10.3.0
+
+# YouTube API
+google-api-python-client==2.131.0
+google-auth==2.29.0
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
+
+# Scheduler
+APScheduler==3.10.4
+
+# Utilities
+python-dotenv==1.0.1
