@@ -1,0 +1,93 @@
+# ============================================================
+#   ADVANCED_VOICE_GEN.PY — Natural voice with pauses
+# ============================================================
+
+import os
+import random
+from gtts import gTTS
+from config import AUDIO_DIR
+
+# Speed variations for natural feel
+SPEEDS = [False, False, False, True]  # 75% normal, 25% slow
+
+
+def _add_natural_pauses(script: str) -> str:
+    """Add natural pauses to make speech sound more human."""
+    # Add pause after sentences
+    script = script.replace(". ", "... ")
+    script = script.replace("! ", "!... ")
+    script = script.replace("? ", "?... ")
+
+    # Add pause after section keywords
+    keywords = [
+        "Step one", "Step two", "Step three", "Step four",
+        "First", "Second", "Third", "Finally",
+        "Now", "Remember", "Important", "Warning",
+        "Pro tip", "The key is", "Here is the secret",
+    ]
+    for kw in keywords:
+        script = script.replace(kw, f"... {kw}")
+
+    return script
+
+
+def generate_advanced_voiceover(script: str, filename: str) -> str | None:
+    """
+    Generate voiceover with natural variations.
+    Returns: output file path or None
+    """
+    os.makedirs(AUDIO_DIR, exist_ok=True)
+    output_path = os.path.join(AUDIO_DIR, f"{filename}.mp3")
+
+    # Clean script
+    clean = script.replace("*", "").replace("#", "").replace("_", "")
+    clean = script.replace("👉", "").replace("✅", "").replace("🔥", "")
+    clean = script.replace("💰", "").replace("🚀", "").replace("⚡", "")
+    clean = " ".join(clean.split())
+
+    # Add natural pauses
+    clean = _add_natural_pauses(clean)
+
+    # Random voice language accent variation
+    accents = [
+        ("en", "com"),        # US English
+        ("en", "co.uk"),      # UK English
+        ("en", "com.au"),     # Australian English
+        ("en", "co.in"),      # Indian English
+    ]
+    lang, tld = random.choice(accents)
+    slow = random.choice(SPEEDS)
+
+    try:
+        tts = gTTS(text=clean, lang=lang, tld=tld, slow=slow)
+        tts.save(output_path)
+
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+            size_kb = os.path.getsize(output_path) / 1024
+            print(f"✅ Voice: {output_path} ({size_kb:.0f}KB, accent={tld})")
+            return output_path
+        return None
+
+    except Exception as e:
+        print(f"⚠️  Accent {tld} failed, trying default: {e}")
+        try:
+            tts = gTTS(text=clean, lang="en", slow=False)
+            tts.save(output_path)
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+                print(f"✅ Voice (fallback): {output_path}")
+                return output_path
+        except Exception as e2:
+            print(f"❌ Voice gen failed: {e2}")
+        return None
+
+
+def get_audio_duration(audio_path: str) -> float:
+    """Get audio duration in seconds."""
+    try:
+        from moviepy.editor import AudioFileClip
+        clip = AudioFileClip(audio_path)
+        duration = clip.duration
+        clip.close()
+        return duration
+    except Exception:
+        return 60.0
