@@ -30,7 +30,7 @@ UPLOAD_TIMES = ["08:00", "11:00", "14:00", "17:00", "19:00", "21:00"]
 
 # ── Groq Model ───────────────────────────────────────────────
 GROQ_MODEL            = "llama-3.3-70b-versatile"
-GROQ_MAX_TOKENS       = 2000
+GROQ_MAX_TOKENS            = 3000
 
 # ── Paths ────────────────────────────────────────────────────
 OUTPUT_DIR            = "output"
