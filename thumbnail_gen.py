@@ -1,31 +1,36 @@
 # ============================================================
-#   THUMBNAIL_GEN.PY — Pillow se eye-catching thumbnail banao
+#   THUMBNAIL_GEN.PY — Unique dynamic thumbnails
 # ============================================================
 
 import os
+import random
 import textwrap
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
-from config import THUMBS_DIR, VIDEO_WIDTH, VIDEO_HEIGHT
+from config import THUMBS_DIR
 
-
-# Thumbnail size (YouTube standard)
 THUMB_W = 1280
 THUMB_H = 720
 
-# Color schemes (cycle through for variety)
+# Many unique color schemes
 COLOR_SCHEMES = [
-    {"bg": (15, 15, 35),    "accent": (255, 60, 60),   "text": (255, 255, 255)},
-    {"bg": (10, 30, 60),    "accent": (0, 180, 255),   "text": (255, 255, 255)},
-    {"bg": (20, 40, 20),    "accent": (50, 220, 80),   "text": (255, 255, 255)},
-    {"bg": (50, 20, 60),    "accent": (200, 80, 255),  "text": (255, 255, 255)},
-    {"bg": (60, 30, 10),    "accent": (255, 160, 0),   "text": (255, 255, 255)},
+    {"bg": (8, 8, 20),      "accent": (255, 50, 50),   "text": (255, 255, 255), "glow": (255, 0, 0)},
+    {"bg": (5, 20, 50),     "accent": (0, 200, 255),   "text": (255, 255, 255), "glow": (0, 150, 255)},
+    {"bg": (15, 40, 15),    "accent": (0, 255, 80),    "text": (255, 255, 255), "glow": (0, 200, 50)},
+    {"bg": (40, 10, 50),    "accent": (220, 0, 255),   "text": (255, 255, 255), "glow": (180, 0, 255)},
+    {"bg": (50, 25, 5),     "accent": (255, 150, 0),   "text": (255, 255, 255), "glow": (255, 120, 0)},
+    {"bg": (5, 40, 50),     "accent": (0, 255, 220),   "text": (255, 255, 255), "glow": (0, 200, 180)},
+    {"bg": (50, 5, 20),     "accent": (255, 20, 100),  "text": (255, 255, 255), "glow": (255, 0, 80)},
+    {"bg": (20, 20, 5),     "accent": (220, 220, 0),   "text": (0, 0, 0),       "glow": (200, 200, 0)},
+    {"bg": (0, 0, 0),       "accent": (255, 255, 255), "text": (0, 0, 0),       "glow": (200, 200, 200)},
+    {"bg": (30, 10, 10),    "accent": (255, 80, 0),    "text": (255, 255, 255), "glow": (255, 60, 0)},
 ]
 
-_scheme_index = 0
+LAYOUTS = ["left_bar", "top_bar", "diagonal", "corner_box", "center_line", "double_bar"]
+
+_counter = 0
 
 
-def _get_font(size: int):
-    """Try system bold fonts, fallback to default."""
+def _get_font(size):
     font_paths = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
@@ -42,71 +47,105 @@ def _get_font(size: int):
     return ImageFont.load_default()
 
 
+def _draw_glow(draw, x, y, w, h, color, radius=30):
+    """Draw glow effect behind text area."""
+    for i in range(radius, 0, -5):
+        alpha_color = tuple(max(0, c - i * 3) for c in color)
+        draw.rectangle([x - i, y - i, x + w + i, y + h + i], fill=alpha_color)
+
+
 def generate_thumbnail(title: str, filename: str) -> str | None:
-    """
-    Professional YouTube thumbnail banao.
-    Returns: output file path or None on error
-    """
-    global _scheme_index
+    global _counter
     os.makedirs(THUMBS_DIR, exist_ok=True)
     output_path = os.path.join(THUMBS_DIR, f"{filename}.jpg")
 
-    scheme = COLOR_SCHEMES[_scheme_index % len(COLOR_SCHEMES)]
-    _scheme_index += 1
+    scheme = COLOR_SCHEMES[_counter % len(COLOR_SCHEMES)]
+    layout = LAYOUTS[_counter % len(LAYOUTS)]
+    _counter += 1
 
     try:
         img = Image.new("RGB", (THUMB_W, THUMB_H), scheme["bg"])
         draw = ImageDraw.Draw(img)
 
-        # ── Gradient overlay (top-left glow) ──────────────────
-        for i in range(200):
-            alpha = int(60 * (1 - i / 200))
-            r = scheme["accent"][0]
-            g = scheme["accent"][1]
-            b = scheme["accent"][2]
-            draw.ellipse(
-                [-i, -i, 400 - i, 400 - i],
-                fill=(r, g, b, 0),  # just for structure; actual blend below
-            )
+        # ── Background pattern (unique per layout) ─────────────
+        if layout == "left_bar":
+            draw.rectangle([0, 0, 18, THUMB_H], fill=scheme["accent"])
+            draw.rectangle([0, THUMB_H - 10, THUMB_W, THUMB_H], fill=scheme["accent"])
 
-        # ── Accent bar on left ─────────────────────────────────
-        draw.rectangle([0, 0, 12, THUMB_H], fill=scheme["accent"])
+        elif layout == "top_bar":
+            draw.rectangle([0, 0, THUMB_W, 18], fill=scheme["accent"])
+            draw.rectangle([0, THUMB_H - 18, THUMB_W, THUMB_H], fill=scheme["accent"])
 
-        # ── Bottom accent strip ────────────────────────────────
-        draw.rectangle([0, THUMB_H - 8, THUMB_W, THUMB_H], fill=scheme["accent"])
+        elif layout == "diagonal":
+            for i in range(0, THUMB_W, 80):
+                draw.line([(i, 0), (i + 200, THUMB_H)], fill=scheme["accent"], width=3)
+            # Dark overlay to keep text readable
+            overlay = Image.new("RGB", (THUMB_W, THUMB_H), scheme["bg"])
+            img = Image.blend(img, overlay, 0.7)
+            draw = ImageDraw.Draw(img)
 
-        # ── Channel watermark top-right ────────────────────────
-        wm_font = _get_font(22)
-        draw.text((THUMB_W - 20, 20), "QA Tips", font=wm_font, fill=scheme["accent"], anchor="rt")
+        elif layout == "corner_box":
+            draw.rectangle([0, 0, 400, THUMB_H], fill=tuple(max(0, c - 20) for c in scheme["bg"]))
+            draw.rectangle([400, 0, 405, THUMB_H], fill=scheme["accent"])
 
-        # ── Main title text ────────────────────────────────────
-        title_clean = title.upper()
-        words = title_clean.split()
+        elif layout == "center_line":
+            draw.rectangle([0, THUMB_H // 2 - 3, THUMB_W, THUMB_H // 2 + 3], fill=scheme["accent"])
+            draw.rectangle([0, 0, THUMB_W, 8], fill=scheme["accent"])
+            draw.rectangle([0, THUMB_H - 8, THUMB_W, THUMB_H], fill=scheme["accent"])
 
-        # Try to fit in 2 lines max
-        wrapped = textwrap.fill(title_clean, width=22)
+        elif layout == "double_bar":
+            draw.rectangle([0, 0, 12, THUMB_H], fill=scheme["accent"])
+            draw.rectangle([24, 0, 36, THUMB_H], fill=scheme["accent"])
+            draw.rectangle([0, THUMB_H - 12, THUMB_W, THUMB_H], fill=scheme["accent"])
+
+        # ── Random decorative dots/circles ────────────────────
+        for _ in range(random.randint(3, 8)):
+            cx = random.randint(0, THUMB_W)
+            cy = random.randint(0, THUMB_H)
+            r = random.randint(5, 25)
+            draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=scheme["accent"])
+
+        # ── Watermark ─────────────────────────────────────────
+        wm_font = _get_font(24)
+        draw.text((THUMB_W - 20, 20), "CRYPTO TIPS", font=wm_font,
+                  fill=scheme["accent"], anchor="rt")
+
+        # ── Money badge (random position) ─────────────────────
+        badge_texts = ["FREE", "EARN NOW", "REAL MONEY", "LIVE PROOF", "CLICK NOW", "JOIN FREE"]
+        badge = random.choice(badge_texts)
+        badge_font = _get_font(36)
+        bx = random.choice([30, THUMB_W - 200])
+        by = random.choice([20, THUMB_H - 70])
+        draw.rectangle([bx - 10, by - 5, bx + 180, by + 45], fill=scheme["accent"])
+        draw.text((bx, by), badge, font=badge_font, fill=scheme["bg"])
+
+        # ── Main title ────────────────────────────────────────
+        title_upper = title.upper()
+        wrapped = textwrap.fill(title_upper, width=20)
         lines = wrapped.split("\n")[:3]
 
-        font_size = 90 if len(lines) == 1 else (72 if len(lines) == 2 else 58)
+        font_size = 95 if len(lines) == 1 else (75 if len(lines) == 2 else 58)
         title_font = _get_font(font_size)
 
-        total_h = len(lines) * (font_size + 14)
+        total_h = len(lines) * (font_size + 16)
         start_y = (THUMB_H - total_h) // 2
 
+        # Offset based on layout
+        x_offset = 60 if layout == "corner_box" else 45
+
         for idx, line in enumerate(lines):
-            y = start_y + idx * (font_size + 14)
-            x = 50
+            y = start_y + idx * (font_size + 16)
 
             # Shadow
-            draw.text((x + 4, y + 4), line, font=title_font, fill=(0, 0, 0))
+            draw.text((x_offset + 5, y + 5), line, font=title_font, fill=(0, 0, 0))
             # Main text
-            draw.text((x, y), line, font=title_font, fill=scheme["text"])
+            draw.text((x_offset, y), line, font=title_font, fill=scheme["text"])
 
-            # Accent underline on first line
+            # Accent underline on first line only
             if idx == 0:
-                bbox = draw.textbbox((x, y), line, font=title_font)
+                bbox = draw.textbbox((x_offset, y), line, font=title_font)
                 draw.rectangle(
-                    [x, bbox[3] + 4, bbox[2], bbox[3] + 10],
+                    [x_offset, bbox[3] + 4, bbox[2], bbox[3] + 10],
                     fill=scheme["accent"],
                 )
 
