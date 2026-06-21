@@ -35,7 +35,9 @@ jobs:
           sudo apt-get install -y ffmpeg fonts-dejavu-core imagemagick
 
       - name: Install Python packages
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          sed -i "s/Image.ANTIALIAS/Image.LANCZOS/g" $(python -c "import moviepy, os; print(os.path.dirname(moviepy.__file__))")/video/fx/resize.py || true
 
       - name: Inject secrets into config
         env:
