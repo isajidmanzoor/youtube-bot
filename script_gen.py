@@ -35,19 +35,19 @@ Create a complete YouTube video script about: "{topic}"
 Return ONLY valid JSON in this exact format:
 {{
     "title": "Catchy YouTube title under 60 chars",
-    "description": "YouTube description 150 words with keywords",
-    "tags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6", "tag7", "tag8"],
-    "search_query": "3 word pexels video search term",
-    "script": "Full voiceover script 200-250 words. Natural speaking style. No special characters."
+    "description": "YouTube description 150 words with keywords. End with: Start earning today: https://i.mec.me/?c=pt6wsw2v",
+    "tags": ["crypto airdrop", "free crypto", "airdrop 2025", "earn crypto", "crypto wallet", "tag6", "tag7", "tag8"],
+    "search_query": "crypto wallet money",
+    "script": "Full voiceover script 200-250 words. Natural human speaking style. Talk like a real person sharing their crypto earnings experience. Mention real wallet platforms like MetaMask, Trust Wallet, Phantom. No special characters.",
+    "comment": "Join free airdrop and earn real crypto daily! Link in description: https://i.mec.me/?c=pt6wsw2v"
 }}
 
 Rules:
-- Title must be engaging and have numbers or power words
-- Description must have keywords for SEO
-- Tags must be relevant to the topic
-- Search query is for finding background stock videos (simple 2-3 words)
-- Script must sound natural when spoken aloud
-- Script should be informative and valuable"""
+- Title must be engaging with numbers or power words
+- Description must end with the earning link
+- Script must sound like a real human sharing experience
+- Mention real crypto platforms and wallets naturally
+- Tags must include crypto airdrop related keywords"""
 
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",

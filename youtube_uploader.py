@@ -113,6 +113,26 @@ def upload_video(
             video_id = response["id"]
             print(f"\n✅ Uploaded! https://youtube.com/watch?v={video_id}")
 
+            # Add pinned comment with link
+            try:
+                comment_body = {
+                    "snippet": {
+                        "videoId": video_id,
+                        "topLevelComment": {
+                            "snippet": {
+                                "textOriginal": "Join free airdrop and earn real crypto daily! Link: https://i.mec.me/?c=pt6wsw2v"
+                            }
+                        }
+                    }
+                }
+                service.commentThreads().insert(
+                    part="snippet",
+                    body=comment_body
+                ).execute()
+                print(f"✅ Comment added for {video_id}")
+            except Exception as ce:
+                print(f"⚠️  Comment failed: {ce}")
+
             # Set thumbnail if provided
             if thumbnail_path and os.path.exists(thumbnail_path):
                 try:
