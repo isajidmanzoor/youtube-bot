@@ -19,7 +19,7 @@ except ImportError:
     GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
-def generate_advanced_script():
+def generate_advanced_script(topic: str = None):
     """Generate a complete 5+ minute video script with scenes."""
     e = get_random_elements()
 
