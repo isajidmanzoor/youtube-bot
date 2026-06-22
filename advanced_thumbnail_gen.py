@@ -127,12 +127,12 @@ def _wrap_text(text, max_chars=18):
     return lines[:3]
 
 
-def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "output/thumbnails") -> str | None:
+def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "output/thumbnails", force_palette: str = None) -> str | None:
     """Generate a professional unique thumbnail."""
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"{filename}.jpg")
 
-    palette = random.choice(PALETTES)
+    palette = next((p for p in PALETTES if p["name"] == force_palette), None) or random.choice(PALETTES)
     layout = random.choice(LAYOUTS)
     badge = random.choice(BADGE_TEXTS)
 
