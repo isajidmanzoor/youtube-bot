@@ -59,10 +59,10 @@ Return ONLY this exact JSON format:
     {{"time": "4:15", "scene": "Proof", "visual": "bank transfer", "text_overlay": "${e['amount2']} WITHDRAWN"}},
     {{"time": "4:45", "scene": "CTA", "visual": "link in description", "text_overlay": "JOIN FREE"}}
   ],
-  "description": "🔥 I earned ${e['amount']} with FREE crypto airdrops on {e['platform']} using {e['wallet']}! Watch this full tutorial to learn my exact strategy.\\n\\n⏱️ TIMESTAMPS\\n0:00 - How I Made ${e['amount']} with Airdrops\\n0:30 - Proof of Withdrawal\\n1:00 - What Are Crypto Airdrops\\n1:45 - Step by Step Tutorial\\n3:00 - Pro Tips to Maximize Earnings\\n3:45 - Mistakes to Avoid\\n4:15 - Live Earnings Proof\\n4:45 - Get Started Free\\n\\n💰 JOIN FREE - Start Earning Today:\\n👉 {AFFILIATE_LINK}\\n\\n✅ 100% FREE - No investment needed\\n✅ Works worldwide\\n✅ Withdraw anytime to {e['wallet']}\\n✅ Earning in minutes\\n\\n🔔 Subscribe for daily crypto tips!\\n\\n#CryptoAirdrop #FreeCrypto #Airdrop2025 #EarnCrypto #PassiveIncome #{e['platform']}Airdrop #{e['wallet'].replace(' ','')} #CryptoTips #MakeMoneyCrypto #FreeTokens",
+  "description": "🔥 I earned ${e['amount']} with FREE crypto airdrops on {e['platform']} using {e['wallet']}! Watch this full tutorial to learn my exact strategy.\\n\\n⏱️ TIMESTAMPS\\n0:00 - How I Made ${e['amount']} with Airdrops\\n0:30 - Proof of Withdrawal\\n1:00 - What Are Crypto Airdrops\\n1:45 - Step by Step Tutorial\\n3:00 - Pro Tips to Maximize Earnings\\n3:45 - Mistakes to Avoid\\n4:15 - Live Earnings Proof\\n4:45 - Get Started Free\\n\\n💰 JOIN FREE - Start Earning Today:\\n👉 https://i.mec.me/?c=pt6wsw2v\\n\\n✅ 100% FREE - No investment needed\\n✅ Works worldwide\\n✅ Withdraw anytime to {e['wallet']}\\n✅ Earning in minutes\\n\\n🔔 Subscribe for daily crypto tips!\\n\\n#CryptoAirdrop #FreeCrypto #Airdrop2025 #EarnCrypto #PassiveIncome #{e['platform']}Airdrop #{e['wallet'].replace(' ','')} #CryptoTips #MakeMoneyCrypto #FreeTokens",
   "tags": ["crypto airdrop 2025", "free crypto", "{e['topic'].lower()[:20]}", "{e['wallet'].lower()}", "airdrop 2025", "earn crypto free", "passive income crypto", "{e['platform'].lower()} airdrop", "make money crypto", "free tokens", "crypto tips 2025", "crypto tutorial"],
   "search_query": "{e['platform'].lower()} crypto blockchain technology",
-  "comment": "🔥 Just withdrew ${e['amount']} using this FREE airdrop! No investment needed 🚀\\n👉 {AFFILIATE_LINK}\\n✅ Takes 2 minutes to set up - Join before it fills up!"
+  "comment": "🔥 Just withdrew ${e['amount']} using this FREE airdrop! No investment needed 🚀\\n👉 https://i.mec.me/?c=pt6wsw2v\\n✅ Takes 2 minutes to set up - Join before it fills up!"
 }}"""
 
     headers = {
@@ -144,10 +144,10 @@ The key is consistency. I spend about fifteen to twenty minutes per day checking
             {"time": "3:00", "scene": "ProTips", "visual": "earnings", "text_overlay": "PRO TIPS"},
             {"time": "4:30", "scene": "CTA", "visual": "join now", "text_overlay": "JOIN FREE"},
         ],
-        "description": f"Learn {e['topic']}!\n\n💰 Start FREE:\n👉 {AFFILIATE_LINK}\n\n#CryptoAirdrop #FreeCrypto #Airdrop2025",
+        "description": f"Learn {e['topic']}!\n\n💰 Start FREE:\n👉 https://i.mec.me/?c=pt6wsw2v\n\n#CryptoAirdrop #FreeCrypto #Airdrop2025",
         "tags": ["crypto airdrop", "free crypto", "airdrop 2025", "earn crypto", "passive income"],
         "search_query": f"{e['platform'].lower()} crypto blockchain",
-        "comment": f"🔥 FREE crypto airdrop! No investment needed!\n👉 {AFFILIATE_LINK}",
+        "comment": f"🔥 FREE crypto airdrop! No investment needed!\n👉 https://i.mec.me/?c=pt6wsw2v",
         "topic": e["topic"],
         "elements": e,
     }

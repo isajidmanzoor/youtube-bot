@@ -5,7 +5,7 @@ from advanced_script_gen import generate_advanced_script
 from advanced_voice_gen import generate_advanced_voiceover, get_audio_duration
 from advanced_thumbnail_gen import generate_advanced_thumbnail
 from advanced_video_gen import build_advanced_video
-from brain.analytics_brain import get_smart_topic, record_video
+from brain.analytics_brain import get_smart_topic, record_video, check_and_learn
 from music_gen import generate_background_music, mix_audio_with_music
 from shorts_gen import create_short, upload_short
 from video_fetcher import fetch_pexels_videos
@@ -60,6 +60,7 @@ def make_complete_video():
         if video_id:
             _pin_comment(video_id, data.get("comment",""))
             record_video(title, topic, video_id, title[:30], palette)
+            check_and_learn()
             result.update({"success": True, "video_id": video_id})
             log_video(title, topic, video_id, video_path, status="uploaded")
             logger.info(f"✅ https://youtube.com/watch?v={video_id} ({dur/60:.1f}min | {mood})")
