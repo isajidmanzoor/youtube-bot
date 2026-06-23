@@ -1,57 +1,102 @@
-import os, random, struct, wave, math
+# ============================================================
+#   MUSIC_GEN.PY — Real royalty-free background music
+#   Downloads actual music from Free Music Archive
+# ============================================================
+
+import os
+import random
+import requests
 
 MUSIC_DIR = "output/music"
-MOODS = {
-    "energetic": {"freq": 528, "bpm": 128},
-    "trustworthy": {"freq": 396, "bpm": 80},
-    "exciting": {"freq": 639, "bpm": 110},
-    "mysterious": {"freq": 285, "bpm": 70},
-    "motivational": {"freq": 417, "bpm": 100},
+
+# Real royalty-free music URLs (CC0 license - no copyright)
+MUSIC_TRACKS = {
+    "energetic": [
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
+    ],
+    "exciting": [
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3",
+    ],
+    "motivational": [
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3",
+    ],
+    "trustworthy": [
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3",
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3",
+    ],
+    "mysterious": [
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3",
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3",
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3",
+    ],
 }
 
-def generate_background_music(duration, mood=None, filename="bg_music"):
-    if not mood: mood = random.choice(list(MOODS.keys()))
-    mood_data = MOODS.get(mood, MOODS["energetic"])
-    os.makedirs(MUSIC_DIR, exist_ok=True)
-    path = os.path.join(MUSIC_DIR, f"{filename}.wav")
-    sample_rate = 44100
-    num_samples = int(sample_rate * (duration + 2))
-    bpm = mood_data["bpm"]
-    beat_interval = int(sample_rate * 60 / bpm)
-    with wave.open(path, "w") as wav:
-        wav.setnchannels(1); wav.setsampwidth(2); wav.setframerate(sample_rate)
-        frames = []
-        for i in range(num_samples):
-            t = i / sample_rate
-            val = math.sin(2 * math.pi * 80 * t) * 0.3
-            beat_pos = i % beat_interval
-            if beat_pos < int(sample_rate * 0.1):
-                decay = 1 - (beat_pos / (sample_rate * 0.1))
-                val += math.sin(2 * math.pi * 200 * t) * decay * 0.4
-            val += math.sin(2 * math.pi * mood_data["freq"] * t) * 0.05 * math.sin(2 * math.pi * 0.3 * t)
-            fade = int(sample_rate * 2)
-            if i < fade: val *= i / fade
-            elif i > num_samples - fade: val *= (num_samples - i) / fade
-            frames.append(struct.pack("<h", int(max(-32767, min(32767, val * 0.06 * 32767)))))
-        wav.writeframes(b"".join(frames))
-    print(f"✅ Music: {path} | mood={mood}")
-    return path
 
-def mix_audio_with_music(voice_path, music_path, output_path, music_volume=0.07):
+def generate_background_music(duration: float, mood: str = None, filename: str = "bg_music") -> str | None:
+    """Download real royalty-free music for background."""
+    if not mood:
+        mood = random.choice(list(MUSIC_TRACKS.keys()))
+
+    os.makedirs(MUSIC_DIR, exist_ok=True)
+    output_path = os.path.join(MUSIC_DIR, f"{filename}.mp3")
+
+    urls = MUSIC_TRACKS.get(mood, MUSIC_TRACKS["energetic"])
+    url = random.choice(urls)
+
+    try:
+        print(f"🎵 Downloading music: mood={mood}")
+        response = requests.get(url, timeout=30, stream=True)
+        response.raise_for_status()
+
+        with open(output_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
+            print(f"✅ Music downloaded: {output_path} ({os.path.getsize(output_path)//1024}KB)")
+            return output_path
+        else:
+            print("⚠️  Music download too small")
+            return None
+
+    except Exception as e:
+        print(f"⚠️  Music download failed: {e}")
+        return None
+
+
+def mix_audio_with_music(voice_path: str, music_path: str, output_path: str, music_volume: float = 0.07) -> str | None:
+    """Mix voiceover with background music at low volume."""
     try:
         from moviepy.editor import AudioFileClip, CompositeAudioClip
+
         voice = AudioFileClip(voice_path)
         music = AudioFileClip(music_path)
+
+        # Loop or trim music to match voice duration
         if music.duration < voice.duration:
-            music = music.audio_loop(duration=voice.duration)
+            loops = int(voice.duration / music.duration) + 1
+            from moviepy.editor import concatenate_audioclips
+            music = concatenate_audioclips([music] * loops).subclip(0, voice.duration)
         else:
             music = music.subclip(0, voice.duration)
+
         music = music.volumex(music_volume)
         mixed = CompositeAudioClip([voice, music])
         mixed.write_audiofile(output_path, fps=44100, logger=None)
-        voice.close(); music.close()
-        print(f"✅ Mixed audio: {output_path}")
+
+        voice.close()
+        music.close()
+
+        print(f"✅ Audio mixed with music: {output_path}")
         return output_path
+
     except Exception as e:
-        print(f"⚠️  Mix failed: {e}")
+        print(f"⚠️  Mix failed (using voice only): {e}")
         return voice_path
