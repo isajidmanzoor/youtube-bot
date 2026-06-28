@@ -6,3 +6,4 @@ output/
 project.zip
 __pycache__/
 *.pyc
+.vercel
