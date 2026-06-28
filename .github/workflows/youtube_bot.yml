@@ -2,13 +2,12 @@ name: Advanced YouTube Bot
 
 on:
   schedule:
-    - cron: "0 3 * * *"
-    - cron: "0 6 * * *"
-    - cron: "0 9 * * *"
-    - cron: "0 12 * * *"
-    - cron: "0 14 * * *"
-    - cron: "0 16 * * *"
+    - cron: "0 * * * *"
   workflow_dispatch:
+
+concurrency:
+  group: advanced-youtube-bot
+  cancel-in-progress: false
 
 jobs:
   make-video:
