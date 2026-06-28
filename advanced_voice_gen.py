@@ -31,7 +31,7 @@ def _add_natural_pauses(script: str) -> str:
     return script
 
 
-def generate_advanced_voiceover(script: str, filename: str) -> str | None:
+def generate_advanced_voiceover(script: str, filename: str, voice_profile: dict = None) -> str | None:
     """
     Generate voiceover with natural variations.
     Returns: output file path or None
@@ -48,15 +48,19 @@ def generate_advanced_voiceover(script: str, filename: str) -> str | None:
     # Add natural pauses
     clean = _add_natural_pauses(clean)
 
-    # Random voice language accent variation
     accents = [
-        ("en", "com"),        # US English
-        ("en", "co.uk"),      # UK English
-        ("en", "com.au"),     # Australian English
-        ("en", "co.in"),      # Indian English
+        ("en", "com"),
+        ("en", "co.uk"),
+        ("en", "com.au"),
+        ("en", "co.in"),
     ]
-    lang, tld = random.choice(accents)
-    slow = random.choice(SPEEDS)
+    if voice_profile:
+        lang = "en"
+        tld = voice_profile.get("tld", "com")
+        slow = bool(voice_profile.get("slow", False))
+    else:
+        lang, tld = random.choice(accents)
+        slow = random.choice(SPEEDS)
 
     try:
         tts = gTTS(text=clean, lang=lang, tld=tld, slow=slow)
@@ -64,7 +68,8 @@ def generate_advanced_voiceover(script: str, filename: str) -> str | None:
 
         if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
             size_kb = os.path.getsize(output_path) / 1024
-            print(f"✅ Voice: {output_path} ({size_kb:.0f}KB, accent={tld})")
+            style = voice_profile.get("style", "auto") if voice_profile else "auto"
+            print(f"✅ Voice: {output_path} ({size_kb:.0f}KB, style={style}, accent={tld})")
             return output_path
         return None
 

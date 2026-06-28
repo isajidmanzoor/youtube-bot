@@ -113,6 +113,7 @@ def build_advanced_video(
     filename: str,
     scenes: list = None,
     title: str = "",
+    film_directives: list = None,
 ) -> str | None:
     """Build video with real zoom effects and scene-based editing."""
     os.makedirs(VIDEOS_DIR, exist_ok=True)
@@ -124,6 +125,7 @@ def build_advanced_video(
         print(f"📢 Audio: {total_dur:.1f}s ({total_dur/60:.1f}min)")
 
         # ── Build scene segments with zoom effects ─────────────
+        film_directives = film_directives or []
         zoom_types = ["in", "out", "in", "out", "in"]  # alternating
         seg_duration = 6  # 6 seconds per clip for better zoom visibility
 
@@ -151,7 +153,14 @@ def build_advanced_video(
                     vc = vc.set_fps(FPS)
 
                     # Apply REAL zoom effect (alternating)
-                    zoom = zoom_types[i % len(zoom_types)]
+                    directive = film_directives[i % len(film_directives)] if film_directives else {}
+                    zoom_hint = directive.get("zoom", "")
+                    if "out" in zoom_hint:
+                        zoom = "out"
+                    elif "push" in zoom_hint or "in" in zoom_hint:
+                        zoom = "in"
+                    else:
+                        zoom = zoom_types[i % len(zoom_types)]
                     vc = _apply_real_zoom(vc, zoom)
 
                     # Add crossfade transition
@@ -182,13 +191,13 @@ def build_advanced_video(
                 layers.append(t)
 
         # 2. Scene labels at key moments
-        scene_labels = [
-            (total_dur * 0.12, 3.5, "📖 WHAT ARE CRYPTO AIRDROPS?", "yellow"),
-            (total_dur * 0.28, 3.5, "▶ STEP BY STEP GUIDE", "white"),
-            (total_dur * 0.45, 3.5, "💡 PRO TIPS", "cyan"),
-            (total_dur * 0.62, 3.5, "⚠️ AVOID THESE MISTAKES", "red"),
-            (total_dur * 0.78, 3.5, "💰 REAL WITHDRAWAL PROOF", "lime"),
-            (total_dur * 0.90, 3.5, "🔗 JOIN FREE — LINK BELOW", "yellow"),
+        scene_labels = _scene_labels_from_plan(scenes, total_dur) or [
+            (total_dur * 0.12, 3.5, "WHAT ARE CRYPTO AIRDROPS?", "yellow"),
+            (total_dur * 0.28, 3.5, "STEP BY STEP GUIDE", "white"),
+            (total_dur * 0.45, 3.5, "PRO TIPS", "cyan"),
+            (total_dur * 0.62, 3.5, "AVOID THESE MISTAKES", "red"),
+            (total_dur * 0.78, 3.5, "REAL WITHDRAWAL PROOF", "lime"),
+            (total_dur * 0.90, 3.5, "JOIN FREE - LINK BELOW", "yellow"),
         ]
 
         for start_t, dur, text, color in scene_labels:
@@ -198,14 +207,14 @@ def build_advanced_video(
                     layers.append(overlay)
 
         # 3. Persistent watermark
-        wm = _try_text("🔗 Link in Description", 28, "white", total_dur, (30, 30), 0)
+        wm = _try_text("Link in Description", 28, "white", total_dur, (30, 30), 0)
         if wm:
             layers.append(wm)
 
         # 4. Affiliate link (last 35 seconds)
         link_start = max(0, total_dur - 35)
         link = _try_text(
-            f"👉 {AFFILIATE_LINK}",
+            AFFILIATE_LINK,
             32, "yellow", min(35, total_dur),
             ("center", VIDEO_HEIGHT - 65),
             link_start
@@ -216,7 +225,7 @@ def build_advanced_video(
         # 5. Subscribe CTA (last 12 seconds)
         sub_start = max(0, total_dur - 12)
         sub = _try_text(
-            "👍 LIKE & SUBSCRIBE for daily FREE CRYPTO tips!",
+            "LIKE & SUBSCRIBE for daily FREE CRYPTO tips!",
             34, "white", min(12, total_dur),
             ("center", VIDEO_HEIGHT - 115),
             sub_start
@@ -250,3 +259,25 @@ def build_advanced_video(
     except Exception as e:
         print(f"❌ Video error: {e}")
         return None
+
+
+def _scene_labels_from_plan(scenes, total_dur):
+    if not scenes:
+        return []
+    colors = {
+        "shocked": "yellow",
+        "curious": "cyan",
+        "confused": "white",
+        "excited": "lime",
+        "bored": "orange",
+        "trusting": "white",
+        "urgent": "red",
+    }
+    labels = []
+    count = len(scenes)
+    for idx, scene in enumerate(scenes):
+        start = min(total_dur - 4, total_dur * (idx / max(1, count)))
+        text = scene.get("subtitle") or scene.get("text_overlay") or scene.get("scene") or "NEXT STEP"
+        color = colors.get(scene.get("viewer_state"), "white")
+        labels.append((max(0, start), 3.5, str(text).upper()[:42], color))
+    return labels

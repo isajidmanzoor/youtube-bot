@@ -8,6 +8,7 @@ from advanced_video_gen import build_advanced_video
 from brain.analytics_brain import get_smart_topic, record_video, check_and_learn
 from brain.global_intelligence import (
     build_global_intelligence,
+    enhance_script_data,
     evaluate_content_quality,
     update_studio_dashboard,
 )
@@ -40,6 +41,7 @@ def make_complete_video():
 
         logger.info("📝 Step 3/9: AI Script Laboratory (5+ min)...")
         data = generate_advanced_script(topic=topic, intelligence=intelligence)
+        data = enhance_script_data(data, intelligence)
         title = data["title"]; result["title"] = title
         logger.info(f"   {title} | {len(data['script'].split())} words")
 
@@ -52,7 +54,11 @@ def make_complete_video():
 
         logger.info("🎙️  Step 5/9: Natural Voice...")
         update_studio_dashboard("voice_generation")
-        raw_audio = generate_advanced_voiceover(data["script"], f"{run_id}_raw")
+        raw_audio = generate_advanced_voiceover(
+            data["script"],
+            f"{run_id}_raw",
+            voice_profile=data.get("studio_directives", {}).get("voice"),
+        )
         if not raw_audio: raise RuntimeError("Voice failed")
         dur = get_audio_duration(raw_audio)
         logger.info(f"   {dur:.1f}s ({dur/60:.1f}min)")
@@ -71,7 +77,14 @@ def make_complete_video():
 
         logger.info("🎞️  Step 8/9: Building Video...")
         update_studio_dashboard("rendering")
-        video_path = build_advanced_video(audio_path, clips, run_id, data.get("scenes",[]), title)
+        video_path = build_advanced_video(
+            audio_path,
+            clips,
+            run_id,
+            data.get("scenes", []),
+            title,
+            film_directives=data.get("studio_directives", {}).get("sentence_directions", []),
+        )
         if not video_path: raise RuntimeError("Video build failed")
 
         logger.info("🖼️  Step 9/9: AI Thumbnail + Upload Brain...")

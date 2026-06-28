@@ -42,9 +42,9 @@ The script should cover:
 2. CREDIBILITY (0:30-1:00) - Why should they trust you, show proof
 3. WHAT ARE AIRDROPS (1:00-1:45) - Explain simply for beginners  
 4. STEP BY STEP GUIDE (1:45-3:00) - How to join {e['platform']} airdrops using {e['wallet']}
-5. PRO TIPS (3:00-3:45) - Advanced strategies to earn more like ${e['amount']}
+5. PRO TIPS (3:00-3:45) - Advanced strategies to improve eligibility without guaranteeing results
 6. MISTAKES TO AVOID (3:45-4:15) - Common pitfalls
-7. EARNINGS PROOF (4:15-4:45) - Talk about real withdrawals of ${e['amount2']}
+7. PROOF & RISK CHECK (4:15-4:45) - Explain how to verify real results and avoid fake claims
 8. CALL TO ACTION (4:45-5:00) - Push them to description link
 
 Voice style: Energetic, conversational, like a friend sharing a secret. Use "you" frequently.
@@ -67,10 +67,10 @@ Return ONLY this exact JSON format:
     {{"time": "4:15", "scene": "Proof", "visual": "bank transfer", "text_overlay": "${e['amount2']} WITHDRAWN"}},
     {{"time": "4:45", "scene": "CTA", "visual": "link in description", "text_overlay": "JOIN FREE"}}
   ],
-  "description": "🔥 I earned ${e['amount']} with FREE crypto airdrops on {e['platform']} using {e['wallet']}! Watch this full tutorial to learn my exact strategy.\\n\\n⏱️ TIMESTAMPS\\n0:00 - How I Made ${e['amount']} with Airdrops\\n0:30 - Proof of Withdrawal\\n1:00 - What Are Crypto Airdrops\\n1:45 - Step by Step Tutorial\\n3:00 - Pro Tips to Maximize Earnings\\n3:45 - Mistakes to Avoid\\n4:15 - Live Earnings Proof\\n4:45 - Get Started Free\\n\\n💰 JOIN FREE - Start Earning Today:\\n👉 https://i.mec.me/?c=pt6wsw2v\\n\\n✅ 100% FREE - No investment needed\\n✅ Works worldwide\\n✅ Withdraw anytime to {e['wallet']}\\n✅ Earning in minutes\\n\\n🔔 Subscribe for daily crypto tips!\\n\\n#CryptoAirdrop #FreeCrypto #Airdrop2025 #EarnCrypto #PassiveIncome #{e['platform']}Airdrop #{e['wallet'].replace(' ','')} #CryptoTips #MakeMoneyCrypto #FreeTokens",
+  "description": "🔥 Learn how crypto airdrops work on {e['platform']} using {e['wallet']}. This is an educational walkthrough, not financial advice and not a guaranteed earning claim. Always verify official links, never share your seed phrase, and avoid any airdrop asking for upfront payment.\\n\\n⏱️ TIMESTAMPS\\n0:00 - What Makes This Opportunity Interesting\\n0:30 - Verification Checklist\\n1:00 - What Are Crypto Airdrops\\n1:45 - Step by Step Tutorial\\n3:00 - Pro Tips to Improve Eligibility\\n3:45 - Mistakes to Avoid\\n4:15 - Proof and Risk Check\\n4:45 - Get Started Safely\\n\\n💰 START SAFELY:\\n👉 https://i.mec.me/?c=pt6wsw2v\\n\\n✅ Free to learn\\n✅ Verify official links first\\n✅ Never share seed phrases\\n✅ Results are not guaranteed\\n\\n🔔 Subscribe for daily crypto education!\\n\\n#CryptoAirdrop #FreeCrypto #Airdrop2025 #CryptoEducation #CryptoSafety #{e['platform']}Airdrop #{e['wallet'].replace(' ','')} #CryptoTips #Web3",
   "tags": ["crypto airdrop 2025", "free crypto", "{e['topic'].lower()[:20]}", "{e['wallet'].lower()}", "airdrop 2025", "earn crypto free", "passive income crypto", "{e['platform'].lower()} airdrop", "make money crypto", "free tokens", "crypto tips 2025", "crypto tutorial"],
   "search_query": "{e['platform'].lower()} crypto blockchain technology",
-  "comment": "🔥 Just withdrew ${e['amount']} using this FREE airdrop! No investment needed 🚀\\n👉 https://i.mec.me/?c=pt6wsw2v\\n✅ Takes 2 minutes to set up - Join before it fills up!"
+  "comment": "🔥 Airdrop safety checklist: verify official links, never share your seed phrase, and avoid upfront payment requests.\\n👉 https://i.mec.me/?c=pt6wsw2v"
 }}"""
 
     headers = {
@@ -190,12 +190,17 @@ The key is consistency. I spend about fifteen to twenty minutes per day checking
         "title": e["title"],
         "script": script,
         "scenes": [
-            {"time": "0:00", "scene": "Hook", "visual": "crypto money", "text_overlay": "FREE CRYPTO"},
-            {"time": "1:00", "scene": "Tutorial", "visual": "wallet setup", "text_overlay": "STEP BY STEP"},
-            {"time": "3:00", "scene": "ProTips", "visual": "earnings", "text_overlay": "PRO TIPS"},
-            {"time": "4:30", "scene": "CTA", "visual": "join now", "text_overlay": "JOIN FREE"},
+            {"time": "0:00", "scene": "Hook", "visual": "crypto safety opener", "text_overlay": "VERIFY FIRST"},
+            {"time": "0:30", "scene": "Credibility", "visual": "verification checklist", "text_overlay": "CHECK LINKS"},
+            {"time": "1:00", "scene": "Education", "visual": "airdrop diagram", "text_overlay": "HOW IT WORKS"},
+            {"time": "1:45", "scene": "Tutorial", "visual": "wallet setup", "text_overlay": "STEP 1"},
+            {"time": "2:30", "scene": "Tutorial2", "visual": "platform walkthrough", "text_overlay": "STEP 2"},
+            {"time": "3:00", "scene": "ProTips", "visual": "eligibility checklist", "text_overlay": "PRO TIP"},
+            {"time": "3:45", "scene": "Mistakes", "visual": "warning sign", "text_overlay": "AVOID SCAMS"},
+            {"time": "4:15", "scene": "Proof", "visual": "risk check", "text_overlay": "NO GUARANTEE"},
+            {"time": "4:45", "scene": "CTA", "visual": "safe next step", "text_overlay": "START SAFELY"},
         ],
-        "description": f"Learn {e['topic']}!\n\n💰 Start FREE:\n👉 https://i.mec.me/?c=pt6wsw2v\n\n#CryptoAirdrop #FreeCrypto #Airdrop2025",
+        "description": f"Learn {e['topic']} safely. Educational only, not financial advice. Verify official links, never share your seed phrase, and avoid upfront payment requests.\n\nStart safely:\nhttps://i.mec.me/?c=pt6wsw2v\n\n#CryptoAirdrop #FreeCrypto #Airdrop2025 #CryptoSafety",
         "tags": ["crypto airdrop", "free crypto", "airdrop 2025", "earn crypto", "passive income"],
         "search_query": f"{e['platform'].lower()} crypto blockchain",
         "comment": f"🔥 FREE crypto airdrop tutorial! Verify official links and never share your seed phrase.\n👉 https://i.mec.me/?c=pt6wsw2v",
