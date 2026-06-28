@@ -1,0 +1,10 @@
+.git
+.vercel
+GITHUB_SECRETS.txt
+client_secret.json
+youtube_token.pickle
+logs
+output
+project.zip
+__pycache__
+*.pyc
