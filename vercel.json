@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/status",
+      "destination": "/api/status.py"
+    },
+    {
+      "source": "/",
+      "destination": "/index.html"
+    }
+  ]
+}

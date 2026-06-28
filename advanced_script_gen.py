@@ -3,6 +3,8 @@
 #   Generates 700-900 word scripts with scene breakdown
 # ============================================================
 
+from __future__ import annotations
+
 import requests
 import json
 import random
@@ -19,9 +21,13 @@ except ImportError:
     GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
-def generate_advanced_script(topic: str = None):
+def generate_advanced_script(topic: str = None, intelligence: dict | None = None):
     """Generate a complete 5+ minute video script with scenes."""
     e = get_random_elements()
+    if topic:
+        e["topic"] = topic
+
+    intelligence_prompt = _format_intelligence_for_prompt(intelligence) if intelligence else ""
 
     prompt = f"""You are an elite YouTube scriptwriter for a crypto education channel.
 Create a DETAILED 5-minute video script (750-850 words) about: "{e['topic']}"
@@ -43,6 +49,8 @@ The script should cover:
 
 Voice style: Energetic, conversational, like a friend sharing a secret. Use "you" frequently.
 NO robotic language. Sound like a real person.
+Use safe educational framing. Do not promise guaranteed profits. Warn viewers to verify official links, never share seed phrases, and avoid airdrops that ask for upfront payments.
+{intelligence_prompt}
 
 Return ONLY this exact JSON format:
 {{
@@ -95,6 +103,8 @@ Return ONLY this exact JSON format:
         data = json.loads(content)
         data["topic"] = e["topic"]
         data["elements"] = e
+        if intelligence:
+            data["intelligence"] = _compact_intelligence(intelligence)
 
         word_count = len(data.get("script", "").split())
         print(f"✅ Script: {data['title']}")
@@ -103,10 +113,51 @@ Return ONLY this exact JSON format:
 
     except Exception as ex:
         print(f"❌ Script error: {ex}")
-        return _fallback(e)
+        return _fallback(e, intelligence)
 
 
-def _fallback(e):
+def _format_intelligence_for_prompt(intelligence: dict) -> str:
+    """Summarize the studio brief for the model without bloating the prompt."""
+    viral = intelligence.get("viral_probability_ai", {})
+    opportunity = intelligence.get("opportunity_scanner", {})
+    truth = intelligence.get("truth_verification_engine", {})
+    story = intelligence.get("story_architect", {}).get("beats", [])
+    psychology = intelligence.get("psychology_engine", [])
+    thumbnail = intelligence.get("thumbnail_laboratory", {}).get("best_thumbnail", {})
+    seo = intelligence.get("seo_laboratory", {})
+
+    beats = "; ".join(f"{b.get('beat')}: {b.get('line')}" for b in story[:6])
+    emotions = "; ".join(
+        f"{p.get('second')}s={p.get('viewer_state')} -> {p.get('rewrite_instruction')}"
+        for p in psychology[:7]
+    )
+
+    return f"""
+
+AI STUDIO INTELLIGENCE:
+- Opportunity: {opportunity.get('best_angle', '')}
+- Content gap: {opportunity.get('content_gap', '')}
+- Viral probability: {viral.get('viral_probability', 'n/a')}%, expected CTR {viral.get('ctr', 'n/a')}%, retention {viral.get('retention', 'n/a')}%
+- Story beats: {beats}
+- Psychology timeline: {emotions}
+- SEO primary keyword: {seo.get('primary_keyword', '')}
+- Thumbnail concept: {thumbnail.get('concept', '')}
+- Truth rules: {', '.join(truth.get('required_checks', []))}
+"""
+
+
+def _compact_intelligence(intelligence: dict) -> dict:
+    return {
+        "run_id": intelligence.get("run_id"),
+        "trend_score": intelligence.get("viral_probability_ai", {}).get("trend_score"),
+        "viral_probability": intelligence.get("viral_probability_ai", {}).get("viral_probability"),
+        "quality_gate": intelligence.get("quality_gate"),
+        "best_thumbnail": intelligence.get("thumbnail_laboratory", {}).get("best_thumbnail"),
+        "research_consensus": intelligence.get("research_swarm", {}).get("consensus"),
+    }
+
+
+def _fallback(e, intelligence: dict | None = None):
     script = f"""{e['intro']}
 
 Today we are diving deep into {e['topic']}. I have been doing this for months now and I want to share everything I know with you.
@@ -125,11 +176,11 @@ Step three is to complete the required tasks. These usually include following on
 
 The pro tip that most people miss is to join airdrops as early as possible. Early participants usually get more tokens because the supply is larger before other users join. I set alerts for new project launches so I can join within the first few hours.
 
-Another strategy is to use multiple wallets. You can create several {e['wallet']} wallets and join the same airdrop multiple times. This multiplies your earnings without any extra effort.
+Another strategy some people discuss is using multiple wallets, but you need to be careful. Some projects ban duplicate accounts, so always read the official rules first. The smarter approach is to track many legitimate projects, stay early, and keep your wallet security clean.
 
-Now let me talk about avoiding scams. If an airdrop asks you to send crypto to receive crypto it is one hundred percent a scam. Legitimate airdrops never require payment. Also be careful of fake websites that look like real projects. Always double check the URL before connecting your wallet.
+Now let me talk about avoiding scams. If an airdrop asks you to send crypto to receive crypto, treat it as a scam. Legitimate airdrops should not ask for your seed phrase, private key, or upfront payment. Also be careful of fake websites that look like real projects. Always double check the URL before connecting your wallet.
 
-Let me share my real results. Using these strategies on {e['platform']} I have earned over ${e['amount']} in the past {e['days']} days alone. My biggest single withdrawal was ${e['amount2']}. I transfer everything directly to my bank through a crypto exchange.
+Let me share the kind of result people look for. Using these strategies on {e['platform']}, some users report rewards around ${e['amount']} during active campaigns, but results are never guaranteed. Token values move, eligibility rules change, and you should verify everything before spending time on a project.
 
 The key is consistency. I spend about fifteen to twenty minutes per day checking new airdrops and completing tasks. That is it. The rest happens automatically as the tokens accumulate in my wallet.
 
@@ -147,7 +198,8 @@ The key is consistency. I spend about fifteen to twenty minutes per day checking
         "description": f"Learn {e['topic']}!\n\n💰 Start FREE:\n👉 https://i.mec.me/?c=pt6wsw2v\n\n#CryptoAirdrop #FreeCrypto #Airdrop2025",
         "tags": ["crypto airdrop", "free crypto", "airdrop 2025", "earn crypto", "passive income"],
         "search_query": f"{e['platform'].lower()} crypto blockchain",
-        "comment": f"🔥 FREE crypto airdrop! No investment needed!\n👉 https://i.mec.me/?c=pt6wsw2v",
+        "comment": f"🔥 FREE crypto airdrop tutorial! Verify official links and never share your seed phrase.\n👉 https://i.mec.me/?c=pt6wsw2v",
         "topic": e["topic"],
         "elements": e,
+        "intelligence": _compact_intelligence(intelligence) if intelligence else None,
     }

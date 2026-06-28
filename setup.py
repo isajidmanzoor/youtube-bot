@@ -40,7 +40,7 @@ def main():
     print("\n📦 Packages:")
     packages = [
         ("requests", "requests"),
-        ("edge_tts", "edge-tts"),
+        ("gtts", "gTTS"),
         ("moviepy", "moviepy"),
         ("PIL", "Pillow"),
         ("googleapiclient", "google-api-python-client"),

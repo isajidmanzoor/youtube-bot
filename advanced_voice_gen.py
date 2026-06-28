@@ -41,8 +41,8 @@ def generate_advanced_voiceover(script: str, filename: str) -> str | None:
 
     # Clean script
     clean = script.replace("*", "").replace("#", "").replace("_", "")
-    clean = script.replace("👉", "").replace("✅", "").replace("🔥", "")
-    clean = script.replace("💰", "").replace("🚀", "").replace("⚡", "")
+    clean = clean.replace("👉", "").replace("✅", "").replace("🔥", "")
+    clean = clean.replace("💰", "").replace("🚀", "").replace("⚡", "")
     clean = " ".join(clean.split())
 
     # Add natural pauses
