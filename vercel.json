@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "api/status.py": {
-      "includeFiles": "public/index.html"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/status",
