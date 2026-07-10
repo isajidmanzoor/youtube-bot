@@ -12,6 +12,8 @@ concurrency:
 jobs:
   make-video:
     runs-on: self-hosted
+    env:
+      RUNNER_TOOL_CACHE: /Users/apple/actions-runner-toolcache
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
