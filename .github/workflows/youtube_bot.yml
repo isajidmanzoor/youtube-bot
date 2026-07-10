@@ -47,10 +47,3 @@ jobs:
         run: mkdir -p output/videos output/audio output/thumbnails output/music output/shorts logs brain
       - name: Run Advanced Bot
         run: python advanced_main.py
-      - name: Save logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs-${{ github.run_number }}
-          path: logs/
-          retention-days: 14
