@@ -17,6 +17,8 @@ jobs:
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
+      - name: Set tool cache path
+        run: echo "RUNNER_TOOL_CACHE=/Users/apple/actions-runner-toolcache" >> $GITHUB_ENV
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
