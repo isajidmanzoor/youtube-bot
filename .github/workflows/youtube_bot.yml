@@ -24,7 +24,7 @@ jobs:
           python-version: "3.11"
           cache: "pip"
       - name: System deps
-        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu-core imagemagick
+        run: brew install ffmpeg imagemagick || true
       - name: Python packages
         run: |
           pip install -r requirements.txt
