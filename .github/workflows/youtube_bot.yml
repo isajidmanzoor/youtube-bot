@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   make-video:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
