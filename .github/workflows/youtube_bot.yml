@@ -28,14 +28,14 @@ jobs:
       - name: Python packages
         run: |
           pip install -r requirements.txt
-          sed -i "s/Image.ANTIALIAS/Image.LANCZOS/g" $(python -c "import moviepy,os;print(os.path.dirname(moviepy.__file__))")/video/fx/resize.py || true
+          sed -i '' "s/Image.ANTIALIAS/Image.LANCZOS/g" $(python -c "import moviepy,os;print(os.path.dirname(moviepy.__file__))")/video/fx/resize.py || true
       - name: Inject secrets
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: |
-          sed -i "s|YOUR_GROQ_API_KEY|$GROQ_API_KEY|g" config.py
-          sed -i "s|YOUR_PEXELS_API_KEY|$PEXELS_API_KEY|g" config.py
+          sed -i '' "s|YOUR_GROQ_API_KEY|$GROQ_API_KEY|g" config.py
+          sed -i '' "s|YOUR_PEXELS_API_KEY|$PEXELS_API_KEY|g" config.py
       - name: YouTube credentials
         env:
           YOUTUBE_TOKEN_B64: ${{ secrets.YOUTUBE_TOKEN_B64 }}
