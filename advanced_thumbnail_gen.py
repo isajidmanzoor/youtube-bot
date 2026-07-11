@@ -186,6 +186,171 @@ def _add_avatar_to_thumbnail(img, palette, layout, gender="female"):
         return img
 
 
+def _draw_coin(draw, cx, cy, r, palette, symbol="$"):
+    """Draw a shiny 3D-ish coin with symbol."""
+    # Shadow
+    draw.ellipse([cx - r + 4, cy - r + 6, cx + r + 4, cy + r + 6], fill=(0, 0, 0, 90))
+    # Outer ring
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=palette["secondary"])
+    # Inner face
+    inner = int(r * 0.78)
+    draw.ellipse([cx - inner, cy - inner, cx + inner, cy + inner], fill=palette["primary"])
+    # Highlight
+    hl = int(r * 0.35)
+    draw.ellipse([cx - inner + 6, cy - inner + 6, cx - inner + 6 + hl, cy - inner + 6 + hl],
+                 fill=tuple(min(255, c + 60) for c in palette["primary"]))
+    # Symbol
+    coin_font = _get_font(int(r * 1.1))
+    draw.text((cx, cy), symbol, font=coin_font, fill=palette["bg"], anchor="mm")
+
+
+def _draw_wallet(draw, x, y, w, h, palette):
+    """Draw a simple stylized crypto wallet icon."""
+    # Wallet body
+    draw.rounded_rectangle([x, y, x + w, y + h], radius=14, fill=palette["secondary"])
+    draw.rounded_rectangle([x + 6, y + 6, x + w - 6, y + h - 6], radius=10, fill=palette["bg"])
+    # Card slot / flap
+    flap_h = h // 3
+    draw.rounded_rectangle([x + 6, y + h - flap_h - 6, x + w - 6, y + h - 6], radius=8, fill=palette["primary"])
+    # Button/clasp circle
+    br = 10
+    draw.ellipse([x + w - 6 - br * 2, y + h - flap_h // 2 - br, x + w - 6, y + h - flap_h // 2 + br],
+                 fill=palette["secondary"])
+
+
+def _fetch_pexels_photo(query, cache_dir="output/thumbnails/_prop_cache"):
+    """Fetch a real stock photo from Pexels (photos API, not videos) and cache it."""
+    import requests, hashlib
+    from config import PEXELS_API_KEY
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_key = hashlib.md5(query.encode()).hexdigest()[:10]
+    cache_path = os.path.join(cache_dir, f"{cache_key}.jpg")
+    if os.path.exists(cache_path):
+        return cache_path
+    try:
+        headers = {"Authorization": PEXELS_API_KEY}
+        params = {"query": query, "per_page": 5, "page": random.randint(1, 3)}
+        r = requests.get("https://api.pexels.com/v1/search", headers=headers, params=params, timeout=15)
+        r.raise_for_status()
+        photos = r.json().get("photos", [])
+        if not photos:
+            return None
+        photo = random.choice(photos)
+        img_url = photo["src"]["large"]
+        img_data = requests.get(img_url, timeout=15).content
+        with open(cache_path, "wb") as f:
+            f.write(img_data)
+        return cache_path
+    except Exception as e:
+        print(f"Pexels photo fetch failed: {e}")
+        return None
+
+
+def _paste_prop_with_shadow(img_rgba, prop_path, x, y, size, rounded=True):
+    """Paste a real photo prop with drop shadow and rounded/circular mask for a polished look."""
+    prop = Image.open(prop_path).convert("RGB")
+    # Center-crop to square
+    w, h = prop.size
+    m = min(w, h)
+    prop = prop.crop(((w - m) // 2, (h - m) // 2, (w + m) // 2, (h + m) // 2)).resize((size, size))
+    prop = ImageEnhance.Contrast(prop).enhance(1.15)
+    prop = ImageEnhance.Color(prop).enhance(1.2)
+
+    mask = Image.new("L", (size, size), 0)
+    mdraw = ImageDraw.Draw(mask)
+    if rounded:
+        mdraw.ellipse([0, 0, size, size], fill=255)
+    else:
+        mdraw.rounded_rectangle([0, 0, size, size], radius=size // 8, fill=255)
+
+    # Drop shadow
+    shadow = Image.new("RGBA", (size + 20, size + 20), (0, 0, 0, 0))
+    sdraw = ImageDraw.Draw(shadow)
+    if rounded:
+        sdraw.ellipse([10, 14, size + 10, size + 14], fill=(0, 0, 0, 130))
+    else:
+        sdraw.rounded_rectangle([10, 14, size + 10, size + 14], radius=size // 8, fill=(0, 0, 0, 130))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(6))
+
+    img_rgba.paste(shadow, (x - 10, y - 10), shadow)
+    img_rgba.paste(prop, (x, y), mask)
+    return img_rgba
+
+
+def _draw_profit_chart(img_rgba, x, y, w, h, palette):
+    """Draw a stylized upward-trending profit chart with a glowing green line and profit badge."""
+    overlay = Image.new("RGBA", img_rgba.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    # Chart background panel
+    draw.rounded_rectangle([x, y, x + w, y + h], radius=14, fill=(0, 0, 0, 160))
+
+    # Generate a jagged-but-upward line
+    points = []
+    n = 6
+    base_y = y + h - 12
+    top_y = y + 12
+    for i in range(n):
+        px = x + 10 + i * (w - 20) / (n - 1)
+        trend = (i / (n - 1))  # 0 -> 1 upward
+        jitter = random.uniform(-8, 8)
+        py = base_y - trend * (base_y - top_y) + jitter
+        points.append((px, py))
+
+    profit_color = (60, 255, 130)
+    draw.line(points, fill=profit_color, width=5, joint="curve")
+    for px, py in points:
+        draw.ellipse([px - 3, py - 3, px + 3, py + 3], fill=profit_color)
+
+    # Filled area under line (subtle)
+    poly = points + [(points[-1][0], base_y), (points[0][0], base_y)]
+    draw.polygon(poly, fill=profit_color + (40,))
+
+    # Profit badge text (e.g. +347%)
+    profit_pct = random.randint(120, 480)
+    badge_font = _get_font(30)
+    badge_text = f"+{profit_pct}%"
+    draw.text((x + w - 12, y + 10), badge_text, font=badge_font, fill=profit_color, anchor="ra")
+
+    img_rgba.paste(overlay, (0, 0), overlay)
+    return img_rgba
+
+
+def _add_crypto_props(img, palette, layout):
+    """Add REAL stock photo coin(s) and a wallet/cash prop for an authentic, advanced look."""
+    try:
+        img_rgba = img.convert("RGBA")
+
+        coin_query = random.choice(["gold coins bitcoin", "bitcoin coin macro", "gold coin stack"])
+        wallet_query = random.choice(["leather wallet money", "digital wallet phone", "cash money hand"])
+
+        coin_photo = _fetch_pexels_photo(coin_query)
+        wallet_photo = _fetch_pexels_photo(wallet_query)
+
+        if coin_photo:
+            coin_size = random.randint(150, 190)
+            cx = random.choice([50, THUMB_W - coin_size - 50])
+            cy = 130
+            img_rgba = _paste_prop_with_shadow(img_rgba, coin_photo, cx, cy, coin_size, rounded=True)
+
+        if wallet_photo:
+            wallet_size = 150
+            wx = 40 if random.random() > 0.5 else THUMB_W - wallet_size - 40
+            wy = THUMB_H - 70 - wallet_size - 20
+            img_rgba = _paste_prop_with_shadow(img_rgba, wallet_photo, wx, wy, wallet_size, rounded=False)
+
+        # Profit chart panel — opposite side from wallet
+        chart_w, chart_h = 220, 130
+        chart_x = THUMB_W - chart_w - 40 if wx < THUMB_W // 2 else 40
+        chart_y = THUMB_H - 70 - chart_h - 20
+        img_rgba = _draw_profit_chart(img_rgba, chart_x, chart_y, chart_w, chart_h, palette)
+
+        return img_rgba.convert("RGB")
+    except Exception as e:
+        print(f"Crypto props add failed: {e}")
+        return img
+
+
 def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "output/thumbnails", force_palette: str = None, gender: str = "female") -> str | None:
     """Generate a professional unique thumbnail."""
     os.makedirs(output_dir, exist_ok=True)
@@ -314,6 +479,9 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
                     [text_x, bbox[3] + 3, bbox[2], bbox[3] + 8],
                     fill=palette["primary"]
                 )
+
+        # ── Crypto props (coins + wallet) ───────────────────
+        img = _add_crypto_props(img, palette, layout)
 
         # ── Avatar face (host persona) ─────────────────────
         img = _add_avatar_to_thumbnail(img, palette, layout, gender)
