@@ -7,3 +7,24 @@ project.zip
 __pycache__/
 *.pyc
 .vercel
+
+# Self-hosted runner files (sensitive - never commit)
+.credentials
+.credentials_rsaparams
+.runner
+.runner_migrated
+.service
+.path
+.env
+bin/
+externals/
+_diag/
+_work/
+*.tar.gz
+config.sh
+env.sh
+run.sh
+runsvc.sh
+run-helper.*
+safe_sleep.sh
+svc.sh
