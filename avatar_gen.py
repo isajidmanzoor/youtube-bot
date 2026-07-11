@@ -15,7 +15,12 @@ def generate_avatar_clip(audio_path, run_id):
         "--audio", audio_abs,
         "--outfile", out_path,
     ]
-    result = subprocess.run(cmd, cwd=WAV2LIP_DIR, capture_output=True, text=True, timeout=3600)
+    env = os.environ.copy()
+    env["OMP_NUM_THREADS"] = "4"
+    env["MKL_NUM_THREADS"] = "4"
+    env["VECLIB_MAXIMUM_THREADS"] = "4"
+    env["NUMEXPR_NUM_THREADS"] = "4"
+    result = subprocess.run(cmd, cwd=WAV2LIP_DIR, capture_output=True, text=True, timeout=3600, env=env)
     if result.returncode != 0:
         print("Wav2Lip failed:", result.stderr[-2000:])
         return None
