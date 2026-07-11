@@ -5,6 +5,7 @@
 import requests
 import os
 import time
+import random
 from config import PEXELS_API_KEY
 
 
@@ -24,6 +25,7 @@ def fetch_pexels_videos(search_query: str, num_clips: int = 5, output_dir: str =
             "per_page": min(num_clips * 2, 20),  # extra fetch in case some fail
             "orientation": "landscape",
             "size": "medium",
+            "page": random.randint(1, 10),
         }
 
         response = requests.get(

@@ -9,7 +9,7 @@ import random
 import requests
 from datetime import datetime
 
-BRAIN_FILE = "logs/brain_data.json"
+BRAIN_FILE = os.path.expanduser("~/youtube_bot_data/brain_data.json")
 AFFILIATE_LINK = "https://i.mec.me/?c=pt6wsw2v"
 
 # Base topics — rotated smartly
@@ -61,7 +61,7 @@ def _load_brain() -> dict:
 
 
 def _save_brain(data: dict):
-    os.makedirs("logs", exist_ok=True)
+    os.makedirs(os.path.dirname(BRAIN_FILE), exist_ok=True)
     with open(BRAIN_FILE, "w") as f:
         json.dump(data, f, indent=2)
 

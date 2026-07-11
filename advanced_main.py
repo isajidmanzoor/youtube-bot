@@ -75,7 +75,14 @@ def make_complete_video():
 
         logger.info("🎬 Step 7/9: Stock Clips...")
         update_studio_dashboard("researching_visuals")
-        clips = fetch_pexels_videos(random.choice([data.get("search_query","crypto"),"cryptocurrency wallet","blockchain"]), max(6,int(dur/20)+3), clip_dir)
+        query_pool = [
+            data.get("search_query", "crypto"),
+            "cryptocurrency wallet", "blockchain", "bitcoin trading",
+            "digital finance", "crypto investor", "money technology",
+            "fintech app", "online banking", "stock market trading",
+            "business laptop working", "financial charts graph",
+        ]
+        clips = fetch_pexels_videos(random.choice(query_pool), max(6,int(dur/20)+3), clip_dir)
         logger.info(f"   {len(clips)} clips")
 
         logger.info("🎞️  Step 8/9: Building Video...")
