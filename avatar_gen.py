@@ -2,16 +2,18 @@ import subprocess, os
 
 WAV2LIP_DIR = os.path.expanduser("~/wav2lip-test/Wav2Lip")
 WAV2LIP_PYTHON = os.path.join(WAV2LIP_DIR, "venv", "bin", "python")
-AVATAR_FACE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatar", "host_face.jpg")
+AVATAR_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatar")
 
-def generate_avatar_clip(audio_path, run_id):
+def generate_avatar_clip(audio_path, run_id, gender="female"):
     audio_abs = os.path.abspath(audio_path)
     out_path = os.path.join(WAV2LIP_DIR, "results", f"avatar_{run_id}.mp4")
+    face_file = "host_face_male.jpg" if gender == "male" else "host_face_female.jpg"
+    avatar_face = os.path.join(AVATAR_DIR, face_file)
 
     cmd = [
         WAV2LIP_PYTHON, "inference.py",
         "--checkpoint_path", "checkpoints/wav2lip_gan.pth",
-        "--face", AVATAR_FACE,
+        "--face", avatar_face,
         "--audio", audio_abs,
         "--outfile", out_path,
     ]

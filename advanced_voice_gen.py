@@ -31,13 +31,35 @@ def _add_natural_pauses(script: str) -> str:
     return script
 
 
-def generate_advanced_voiceover(script: str, filename: str, voice_profile: dict = None) -> str | None:
+MALE_VOICES = ["Daniel", "Fred"]
+FEMALE_VOICES = ["Samantha", "Karen"]
+
+def generate_advanced_voiceover(script: str, filename: str, voice_profile: dict = None, gender: str = None) -> str | None:
     """
-    Generate voiceover with natural variations.
+    Generate voiceover with natural variations using macOS 'say' for gender control.
     Returns: output file path or None
     """
+    import subprocess, shutil
     os.makedirs(AUDIO_DIR, exist_ok=True)
     output_path = os.path.join(AUDIO_DIR, f"{filename}.mp3")
+
+    if gender:
+        clean_for_say = script.replace("*", "").replace("#", "").replace("_", "")
+        clean_for_say = clean_for_say.replace("👉", "").replace("✅", "").replace("🔥", "")
+        clean_for_say = clean_for_say.replace("💰", "").replace("🚀", "").replace("⚡", "")
+        clean_for_say = " ".join(clean_for_say.split())
+        voice_name = random.choice(MALE_VOICES if gender == "male" else FEMALE_VOICES)
+        aiff_path = output_path.replace(".mp3", ".aiff")
+        try:
+            subprocess.run(["say", "-v", voice_name, "-o", aiff_path, clean_for_say], check=True, timeout=600)
+            subprocess.run(["ffmpeg", "-y", "-i", aiff_path, output_path], check=True, capture_output=True)
+            os.remove(aiff_path)
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+                size_kb = os.path.getsize(output_path) / 1024
+                print(f"✅ Voice: {output_path} ({size_kb:.0f}KB, gender={gender}, voice={voice_name})")
+                return output_path
+        except Exception as e:
+            print(f"⚠️ macOS say failed, falling back to gTTS: {e}")
 
     # Clean script
     clean = script.replace("*", "").replace("#", "").replace("_", "")

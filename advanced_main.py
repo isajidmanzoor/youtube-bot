@@ -54,10 +54,13 @@ def make_complete_video():
 
         logger.info("🎙️  Step 5/9: Natural Voice...")
         update_studio_dashboard("voice_generation")
+        persona_gender = random.choice(["male", "female"])
+        logger.info(f"   Persona: {persona_gender}")
         raw_audio = generate_advanced_voiceover(
             data["script"],
             f"{run_id}_raw",
             voice_profile=data.get("studio_directives", {}).get("voice"),
+            gender=persona_gender,
         )
         if not raw_audio: raise RuntimeError("Voice failed")
         dur = get_audio_duration(raw_audio)
@@ -91,7 +94,7 @@ def make_complete_video():
         try:
             from avatar_gen import generate_avatar_clip, overlay_avatar_on_video
             logger.info("🧑 Generating talking avatar overlay...")
-            avatar_clip = generate_avatar_clip(audio_path, run_id)
+            avatar_clip = generate_avatar_clip(audio_path, run_id, gender=persona_gender)
             if avatar_clip:
                 overlaid_path = video_path.replace(".mp4", "_avatar.mp4")
                 video_path = overlay_avatar_on_video(video_path, avatar_clip, overlaid_path)
