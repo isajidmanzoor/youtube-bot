@@ -127,7 +127,66 @@ def _wrap_text(text, max_chars=18):
     return lines[:3]
 
 
-def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "output/thumbnails", force_palette: str = None) -> str | None:
+def _add_avatar_to_thumbnail(img, palette, layout, gender="female"):
+    """Paste a circular-cropped avatar with a dynamic multi-layer glow border, slight tilt, and grain."""
+    try:
+        avatar_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatar")
+        face_file = "host_face_male.jpg" if gender == "male" else "host_face_female.jpg"
+        face_path = os.path.join(avatar_dir, face_file)
+        if not os.path.exists(face_path):
+            return img
+
+        size = random.randint(210, 260)
+        avatar = Image.open(face_path).convert("RGB").resize((size, size))
+        avatar = ImageEnhance.Contrast(avatar).enhance(1.15)
+        avatar = ImageEnhance.Color(avatar).enhance(1.1)
+
+        # Circular mask
+        mask = Image.new("L", (size, size), 0)
+        mdraw = ImageDraw.Draw(mask)
+        mdraw.ellipse([0, 0, size, size], fill=255)
+
+        # Multi-layer glow ring (outer soft glow + inner solid ring)
+        ring_size = size + 28
+        ring = Image.new("RGBA", (ring_size, ring_size), (0, 0, 0, 0))
+        rdraw = ImageDraw.Draw(ring)
+        rdraw.ellipse([0, 0, ring_size, ring_size], fill=palette["secondary"] + (140,))
+        ring = ring.filter(ImageFilter.GaussianBlur(8))
+        rdraw2 = ImageDraw.Draw(ring)
+        inner_pad = 8
+        rdraw2.ellipse([inner_pad, inner_pad, ring_size - inner_pad, ring_size - inner_pad],
+                       fill=palette["primary"] + (255,))
+
+        # Slight random tilt for dynamic feel
+        angle = random.uniform(-6, 6)
+        ring = ring.rotate(angle, expand=True, resample=Image.BICUBIC)
+
+        # Random corner (bottom side only, avoids title & badge collisions)
+        pos_x = THUMB_W - ring.width - random.randint(25, 55) if layout != "split_left_forceavatarleft"             else random.randint(25, 55)
+        pos_y = THUMB_H - 70 - ring.height - random.randint(10, 40)
+
+        img_rgba = img.convert("RGBA")
+        img_rgba.paste(ring, (pos_x, pos_y), ring)
+
+        # Paste avatar centered inside the ring (accounting for rotation padding)
+        offset_x = pos_x + (ring.width - size) // 2
+        offset_y = pos_y + (ring.height - size) // 2
+        img_rgba.paste(avatar, (offset_x, offset_y), mask)
+
+        img = img_rgba.convert("RGB")
+
+        # Subtle grain/noise texture for cinematic uniqueness
+        noise = Image.effect_noise((THUMB_W, THUMB_H), random.randint(18, 30)).convert("L")
+        noise_rgb = Image.merge("RGB", (noise, noise, noise))
+        img = Image.blend(img, noise_rgb, 0.03)
+
+        return img
+    except Exception as e:
+        print(f"Avatar thumbnail add failed: {e}")
+        return img
+
+
+def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "output/thumbnails", force_palette: str = None, gender: str = "female") -> str | None:
     """Generate a professional unique thumbnail."""
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"{filename}.jpg")
@@ -255,6 +314,10 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
                     [text_x, bbox[3] + 3, bbox[2], bbox[3] + 8],
                     fill=palette["primary"]
                 )
+
+        # ── Avatar face (host persona) ─────────────────────
+        img = _add_avatar_to_thumbnail(img, palette, layout, gender)
+        draw = ImageDraw.Draw(img)
 
         # ── Bottom accent bar with earnings ──────────────────
         bar_h = 70

@@ -113,7 +113,7 @@ def make_complete_video():
 
         logger.info("🖼️  Step 9/9: AI Thumbnail + Upload Brain...")
         os.makedirs(THUMBS_DIR, exist_ok=True)
-        thumb = generate_advanced_thumbnail(title, run_id, THUMBS_DIR, force_palette=palette)
+        thumb = generate_advanced_thumbnail(title, run_id, THUMBS_DIR, force_palette=palette, gender=persona_gender)
 
         logger.info("⬆️  Uploading...")
         update_studio_dashboard("uploading")
