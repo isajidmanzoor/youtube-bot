@@ -46,4 +46,15 @@ jobs:
       - name: Create folders
         run: mkdir -p output/videos output/audio output/thumbnails output/music output/shorts logs brain
       - name: Run Advanced Bot
-        run: python advanced_main.py
+        run: |
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt of 3..."
+            if python advanced_main.py; then
+              echo "Success on attempt $attempt"
+              exit 0
+            fi
+            echo "Attempt $attempt failed, waiting before retry..."
+            sleep 30
+          done
+          echo "All 3 attempts failed"
+          exit 1
