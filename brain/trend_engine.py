@@ -19,7 +19,7 @@ VIRAL_HOOKS = [
     "I Tested {num} Crypto Airdrops So You Don't Have To - SHOCKING Results",
     "The ${amount} Crypto Airdrop That EVERYONE Is Missing Right Now",
     "How a 17 Year Old Made ${amount} With Free Crypto Airdrops",
-    "MILLIONAIRES Are Using This Crypto Airdrop Strategy (Now You Can Too)",
+    "MILLIONAIRES Are Using This {platform} Airdrop Strategy (Now You Can Too)",
     "This ${amount} Airdrop Took Me Only {minutes} Minutes to Claim",
     "EXPOSED: The Real Truth About Crypto Airdrops and How I Made ${amount}",
     "Watch Me Claim ${amount} in Free Crypto LIVE - Step By Step",
@@ -100,15 +100,30 @@ def get_trending_topic():
 
 
 def generate_viral_title():
-    """Generate a viral title with random variables."""
-    template = random.choice(VIRAL_HOOKS)
-    return template.format(
-        amount=random.choice(AMOUNTS),
-        days=random.choice(DAYS),
-        num=random.choice(NUMS),
-        minutes=random.choice(MINUTES),
-        platform=random.choice(PLATFORMS),
-    )
+    """Generate a viral title with random variables, avoiding recent exact repeats."""
+    recent_titles = []
+    try:
+        import json, os
+        brain_file = os.path.expanduser("~/youtube_bot_data/brain_data.json")
+        if os.path.exists(brain_file):
+            with open(brain_file) as f:
+                data = json.load(f)
+            recent_titles = [v.get("title", "") for v in data.get("uploaded_videos", [])[-6:]]
+    except Exception:
+        pass
+
+    for _ in range(15):
+        template = random.choice(VIRAL_HOOKS)
+        title = template.format(
+            amount=random.choice(AMOUNTS),
+            days=random.choice(DAYS),
+            num=random.choice(NUMS),
+            minutes=random.choice(MINUTES),
+            platform=random.choice(PLATFORMS),
+        )
+        if title not in recent_titles:
+            return title
+    return title
 
 
 def get_random_elements():
