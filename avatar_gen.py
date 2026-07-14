@@ -39,10 +39,11 @@ def overlay_avatar_on_video(main_video_path, avatar_clip_path, output_path):
     avatar_w = int(main_clip.w * 0.25)
     avatar_clip = avatar_clip.resize(width=avatar_w)
 
-    if avatar_clip.duration < main_clip.duration:
-        avatar_clip = avatar_clip.loop(duration=main_clip.duration)
+    safe_duration = max(0.5, main_clip.duration - 0.2)
+    if avatar_clip.duration < safe_duration:
+        avatar_clip = avatar_clip.loop(duration=safe_duration)
     else:
-        avatar_clip = avatar_clip.subclip(0, main_clip.duration)
+        avatar_clip = avatar_clip.subclip(0, min(safe_duration, avatar_clip.duration - 0.15))
 
     margin = 20
     position = (main_clip.w - avatar_w - margin, main_clip.h - avatar_clip.h - margin)
