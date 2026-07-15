@@ -82,7 +82,7 @@ def make_complete_video():
             "fintech app", "online banking", "stock market trading",
             "business laptop working", "financial charts graph",
         ]
-        clips = fetch_pexels_videos(random.choice(query_pool), max(6,int(dur/20)+3), clip_dir)
+        clips = fetch_pexels_videos(random.choice(query_pool), max(4,int(dur/40)+2), clip_dir)
         logger.info(f"   {len(clips)} clips")
 
         logger.info("🎞️  Step 8/9: Building Video...")
