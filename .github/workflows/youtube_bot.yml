@@ -46,6 +46,11 @@ jobs:
       - name: Create folders
         run: mkdir -p output/videos output/audio output/thumbnails output/music output/shorts logs brain
       - name: Run Advanced Bot
+        env:
+          OMP_NUM_THREADS: "4"
+          MKL_NUM_THREADS: "4"
+          VECLIB_MAXIMUM_THREADS: "4"
+          NUMEXPR_NUM_THREADS: "4"
         run: |
           for attempt in 1 2 3; do
             echo "Attempt $attempt of 3..."
