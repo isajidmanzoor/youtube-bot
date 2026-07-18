@@ -79,6 +79,7 @@ def upload_video(
             "tags": tags[:500],  # YouTube tag limit
             "categoryId": VIDEO_CATEGORY_ID,
             "defaultLanguage": VIDEO_LANGUAGE,
+            "defaultAudioLanguage": VIDEO_LANGUAGE,
         },
         "status": {
             "privacyStatus": privacy,
