@@ -127,6 +127,68 @@ def _wrap_text(text, max_chars=18):
     return lines[:3]
 
 
+REMBG_PYTHON = os.path.expanduser("~/rembg-test/venv/bin/python")
+
+def _remove_background(input_path, output_path):
+    """Calls the isolated rembg venv via subprocess to cut out the subject with real transparency."""
+    import subprocess
+    script = "from rembg import remove; from PIL import Image; img = Image.open('{}'); result = remove(img); result.save('{}')".format(input_path, output_path)
+    cmd = [REMBG_PYTHON, "-c", script]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    if result.returncode != 0:
+        print(f"rembg failed: {result.stderr[-500:]}")
+        return False
+    return os.path.exists(output_path)
+
+
+def _add_reaction_face(img, palette, seed_val):
+    """Add a large, dynamic 'shocked reaction' face cutout (real background removal, viral thumbnail style)."""
+    try:
+        random.seed(seed_val)
+        reaction_queries = [
+            "shocked surprised man face reaction",
+            "shocked surprised woman face reaction",
+            "amazed excited person reaction face",
+            "surprised person mouth open reaction",
+            "excited shocked face expression",
+        ]
+        query = random.choice(reaction_queries)
+        photo_path = _fetch_pexels_photo(query, cache_dir="output/thumbnails/_reaction_cache")
+        if not photo_path:
+            return img
+
+        cutout_path = photo_path.replace(".jpg", "_cutout.png")
+        if not os.path.exists(cutout_path):
+            if not os.path.exists(REMBG_PYTHON) or not _remove_background(os.path.abspath(photo_path), os.path.abspath(cutout_path)):
+                return img
+
+        face = Image.open(cutout_path).convert("RGBA")
+        fw, fh = face.size
+        target_h = int(THUMB_H * 0.95)
+        target_w = int(fw * (target_h / fh))
+        face = face.resize((target_w, target_h))
+        face = ImageEnhance.Contrast(face).enhance(1.15)
+        face = ImageEnhance.Color(face).enhance(1.2)
+
+        on_right = random.random() > 0.5
+        pos_x = THUMB_W - target_w - 10 if on_right else 10
+        pos_y = THUMB_H - target_h
+
+        # Soft drop shadow behind the cutout for depth
+        shadow = Image.new("RGBA", face.size, (0, 0, 0, 0))
+        alpha = face.split()[3]
+        shadow.paste((0, 0, 0, 120), (0, 0), alpha)
+        shadow = shadow.filter(ImageFilter.GaussianBlur(12))
+
+        img_rgba = img.convert("RGBA")
+        img_rgba.paste(shadow, (pos_x + 8, pos_y + 10), shadow)
+        img_rgba.paste(face, (pos_x, pos_y), face)
+        return img_rgba.convert("RGB")
+    except Exception as e:
+        print(f"Reaction face add failed: {e}")
+        return img
+
+
 def _add_avatar_to_thumbnail(img, palette, layout, gender="female"):
     """Paste a circular-cropped avatar with a dynamic multi-layer glow border, slight tilt, and grain."""
     try:
@@ -136,7 +198,7 @@ def _add_avatar_to_thumbnail(img, palette, layout, gender="female"):
         if not os.path.exists(face_path):
             return img
 
-        size = random.randint(210, 260)
+        size = random.randint(320, 380)
         avatar = Image.open(face_path).convert("RGB").resize((size, size))
         avatar = ImageEnhance.Contrast(avatar).enhance(1.15)
         avatar = ImageEnhance.Color(avatar).enhance(1.1)
@@ -332,6 +394,14 @@ def _add_crypto_props(img, palette, layout):
             cx = random.choice([50, THUMB_W - coin_size - 50])
             cy = 130
             img_rgba = _paste_prop_with_shadow(img_rgba, coin_photo, cx, cy, coin_size, rounded=True)
+            # Red attention ring around the coin (classic viral thumbnail style)
+            ring_overlay = Image.new("RGBA", img_rgba.size, (0, 0, 0, 0))
+            rdraw = ImageDraw.Draw(ring_overlay)
+            pad = 14
+            for w_ in range(6, 2, -1):
+                rdraw.ellipse([cx - pad, cy - pad, cx + coin_size + pad, cy + coin_size + pad],
+                              outline=(255, 30, 30, 220), width=w_)
+            img_rgba = Image.alpha_composite(img_rgba, ring_overlay)
 
         if wallet_photo:
             wallet_size = 150
@@ -361,8 +431,35 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
     badge = random.choice(BADGE_TEXTS)
 
     try:
-        # ── Base canvas ──────────────────────────────────────
-        img = Image.new("RGB", (THUMB_W, THUMB_H), palette["bg"])
+        # ── Base canvas — real blurred background photo for depth ──
+        bg_queries = [
+            "crypto trading dark background", "stock market neon city",
+            "financial technology abstract", "digital money glow",
+            "cryptocurrency network dark", "business success dramatic",
+        ]
+        bg_photo_path = _fetch_pexels_photo(random.choice(bg_queries), cache_dir="output/thumbnails/_bg_cache")
+        if bg_photo_path:
+            bg_photo = Image.open(bg_photo_path).convert("RGB")
+            bw, bh = bg_photo.size
+            target_ratio = THUMB_W / THUMB_H
+            src_ratio = bw / bh
+            if src_ratio > target_ratio:
+                new_h = bh
+                new_w = int(bh * target_ratio)
+            else:
+                new_w = bw
+                new_h = int(bw / target_ratio)
+            left = (bw - new_w) // 2
+            top = (bh - new_h) // 2
+            bg_photo = bg_photo.crop((left, top, left + new_w, top + new_h)).resize((THUMB_W, THUMB_H))
+            bg_photo = bg_photo.filter(ImageFilter.GaussianBlur(6))
+            bg_photo = ImageEnhance.Brightness(bg_photo).enhance(0.45)
+            bg_photo = ImageEnhance.Color(bg_photo).enhance(1.3)
+            # Tint with palette primary color for cohesion
+            tint = Image.new("RGB", (THUMB_W, THUMB_H), palette["primary"])
+            img = Image.blend(bg_photo, tint, 0.12)
+        else:
+            img = Image.new("RGB", (THUMB_W, THUMB_H), palette["bg"])
 
         # ── Background effect based on layout ─────────────────
         if layout == "split_left":
@@ -462,13 +559,24 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
         else:
             text_x = 50
 
+        # Dark backdrop panel behind title for guaranteed readability
+        panel_pad = 16
+        panel_top = start_y - panel_pad
+        panel_bottom = start_y + total_h + panel_pad
+        panel_overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        pdraw = ImageDraw.Draw(panel_overlay)
+        pdraw.rectangle([0, panel_top, THUMB_W, panel_bottom], fill=(0, 0, 0, 150))
+        img = Image.alpha_composite(img.convert("RGBA"), panel_overlay).convert("RGB")
+        draw = ImageDraw.Draw(img)
+        title_color = (255, 255, 255)
+
         for i, line in enumerate(lines):
             y = start_y + i * line_height
 
             # Draw each line with outline + shadow
             _draw_text_with_outline(
                 draw, (text_x, y), line, title_font,
-                palette["text"], (0, 0, 0), 4
+                title_color, (0, 0, 0), 4
             )
 
             # Accent line under first word of first line
@@ -481,6 +589,10 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
                 )
 
         # ── Crypto props (coins + wallet) ───────────────────
+        # Unique seed per video (based on filename) so each thumbnail's reaction face differs
+        _reaction_seed = hash(filename) % 100000
+        img = _add_reaction_face(img, palette, _reaction_seed)
+
         img = _add_crypto_props(img, palette, layout)
 
         # ── Avatar face (host persona) ─────────────────────
@@ -504,7 +616,8 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
 
         # ── Save ──────────────────────────────────────────────
         # Slight enhancement
-        img = ImageEnhance.Contrast(img).enhance(1.1)
+        img = ImageEnhance.Contrast(img).enhance(1.12)
+        img = ImageEnhance.Color(img).enhance(1.1)
         img = ImageEnhance.Sharpness(img).enhance(1.2)
 
         img.save(output_path, "JPEG", quality=96)
