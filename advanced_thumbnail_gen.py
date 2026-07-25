@@ -170,8 +170,8 @@ def _add_reaction_face(img, palette, seed_val):
         face = ImageEnhance.Contrast(face).enhance(1.15)
         face = ImageEnhance.Color(face).enhance(1.2)
 
-        on_right = random.random() > 0.5
-        pos_x = THUMB_W - target_w - 10 if on_right else 10
+        # Always right side for consistent layout (text always has left half free)
+        pos_x = THUMB_W - target_w - 10
         pos_y = THUMB_H - target_h
 
         # Soft drop shadow behind the cutout for depth
@@ -198,7 +198,7 @@ def _add_avatar_to_thumbnail(img, palette, layout, gender="female"):
         if not os.path.exists(face_path):
             return img
 
-        size = random.randint(320, 380)
+        size = random.randint(130, 150)
         avatar = Image.open(face_path).convert("RGB").resize((size, size))
         avatar = ImageEnhance.Contrast(avatar).enhance(1.15)
         avatar = ImageEnhance.Color(avatar).enhance(1.1)
@@ -224,8 +224,8 @@ def _add_avatar_to_thumbnail(img, palette, layout, gender="female"):
         ring = ring.rotate(angle, expand=True, resample=Image.BICUBIC)
 
         # Random corner (bottom side only, avoids title & badge collisions)
-        pos_x = THUMB_W - ring.width - random.randint(25, 55) if layout != "split_left_forceavatarleft"             else random.randint(25, 55)
-        pos_y = THUMB_H - 70 - ring.height - random.randint(10, 40)
+        pos_x = THUMB_W - ring.width - 20
+        pos_y = THUMB_H - 70 - ring.height - 15
 
         img_rgba = img.convert("RGBA")
         img_rgba.paste(ring, (pos_x, pos_y), ring)
@@ -389,32 +389,28 @@ def _add_crypto_props(img, palette, layout):
         coin_photo = _fetch_pexels_photo(coin_query)
         wallet_photo = _fetch_pexels_photo(wallet_query)
 
+        # All props confined to the LEFT half so the right side stays clear for the reaction face
         if coin_photo:
-            coin_size = random.randint(150, 190)
-            cx = random.choice([50, THUMB_W - coin_size - 50])
-            cy = 130
+            coin_size = 130
+            cx, cy = 30, 90
             img_rgba = _paste_prop_with_shadow(img_rgba, coin_photo, cx, cy, coin_size, rounded=True)
-            # Red attention ring around the coin (classic viral thumbnail style)
             ring_overlay = Image.new("RGBA", img_rgba.size, (0, 0, 0, 0))
             rdraw = ImageDraw.Draw(ring_overlay)
-            pad = 14
-            for w_ in range(6, 2, -1):
+            pad = 10
+            for w_ in range(5, 2, -1):
                 rdraw.ellipse([cx - pad, cy - pad, cx + coin_size + pad, cy + coin_size + pad],
                               outline=(255, 30, 30, 220), width=w_)
             img_rgba = Image.alpha_composite(img_rgba, ring_overlay)
 
         if wallet_photo:
-            wallet_size = 150
-            wx = 40 if random.random() > 0.5 else THUMB_W - wallet_size - 40
-            wy = THUMB_H - 70 - wallet_size - 20
+            wallet_size = 110
+            wx, wy = 30, THUMB_H - 70 - wallet_size - 15
             img_rgba = _paste_prop_with_shadow(img_rgba, wallet_photo, wx, wy, wallet_size, rounded=False)
 
-        # Profit chart panel — opposite side from wallet
-        chart_w, chart_h = 220, 130
-        chart_x = THUMB_W - chart_w - 40 if wx < THUMB_W // 2 else 40
-        chart_y = THUMB_H - 70 - chart_h - 20
+        chart_w, chart_h = 190, 110
+        chart_x = (wx + wallet_size + 15) if wallet_photo else 30
+        chart_y = THUMB_H - 70 - chart_h - 15
         img_rgba = _draw_profit_chart(img_rgba, chart_x, chart_y, chart_w, chart_h, palette)
-
         return img_rgba.convert("RGB")
     except Exception as e:
         print(f"Crypto props add failed: {e}")
@@ -540,7 +536,7 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
 
         # ── MAIN TITLE ────────────────────────────────────────
         title_upper = title.upper()
-        lines = _wrap_text(title_upper, max_chars=16)
+        lines = _wrap_text(title_upper, max_chars=12)
 
         # Dynamic font size based on line count
         sizes = {1: 110, 2: 82, 3: 62}
@@ -552,20 +548,15 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
         start_y = (THUMB_H - total_h) // 2 - 10
 
         # Adjust x based on layout
-        if layout == "split_left":
-            text_x = 50
-        elif layout == "split_right":
-            text_x = THUMB_W // 2 + 20
-        else:
-            text_x = 50
-
-        # Dark backdrop panel behind title for guaranteed readability
+        # Always anchor text to the left half so it never collides with the reaction face on the right
+        text_x = 50
         panel_pad = 16
         panel_top = start_y - panel_pad
         panel_bottom = start_y + total_h + panel_pad
+        panel_right = int(THUMB_W * 0.56)
         panel_overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
         pdraw = ImageDraw.Draw(panel_overlay)
-        pdraw.rectangle([0, panel_top, THUMB_W, panel_bottom], fill=(0, 0, 0, 150))
+        pdraw.rectangle([0, panel_top, panel_right, panel_bottom], fill=(0, 0, 0, 150))
         img = Image.alpha_composite(img.convert("RGBA"), panel_overlay).convert("RGB")
         draw = ImageDraw.Draw(img)
         title_color = (255, 255, 255)
