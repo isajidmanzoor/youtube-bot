@@ -31,6 +31,23 @@ def _add_natural_pauses(script: str) -> str:
     return script
 
 
+# Edge TTS voices — much more natural than macOS say
+MALE_VOICES_EDGE = [
+    ("en-US-AndrewNeural", "+10%", "+0Hz"),
+    ("en-US-GuyNeural", "+5%", "+2Hz"),
+    ("en-US-BrianNeural", "+0%", "+0Hz"),
+    ("en-US-ChristopherNeural", "-5%", "-2Hz"),
+    ("en-GB-RyanNeural", "+8%", "+0Hz"),
+    ("en-AU-WilliamMultilingualNeural", "+5%", "+0Hz"),
+]
+FEMALE_VOICES_EDGE = [
+    ("en-US-AvaNeural", "+10%", "+2Hz"),
+    ("en-US-EmmaNeural", "+5%", "+0Hz"),
+    ("en-US-AriaNeural", "+8%", "+0Hz"),
+    ("en-GB-SoniaNeural", "+5%", "-2Hz"),
+    ("en-AU-NatashaNeural", "+0%", "+0Hz"),
+]
+# Fallback macOS voices
 MALE_VOICES = ["Daniel", "Fred"]
 FEMALE_VOICES = ["Samantha", "Karen"]
 
@@ -48,18 +65,35 @@ def generate_advanced_voiceover(script: str, filename: str, voice_profile: dict 
         clean_for_say = clean_for_say.replace("👉", "").replace("✅", "").replace("🔥", "")
         clean_for_say = clean_for_say.replace("💰", "").replace("🚀", "").replace("⚡", "")
         clean_for_say = " ".join(clean_for_say.split())
-        voice_name = random.choice(MALE_VOICES if gender == "male" else FEMALE_VOICES)
-        aiff_path = output_path.replace(".mp3", ".aiff")
+        # Try Edge TTS first (much more natural)
+        voice_pool = MALE_VOICES_EDGE if gender == "male" else FEMALE_VOICES_EDGE
+        voice_name, rate, pitch = random.choice(voice_pool)
         try:
-            subprocess.run(["say", "-v", voice_name, "-o", aiff_path, clean_for_say], check=True, timeout=600)
-            subprocess.run(["ffmpeg", "-y", "-i", aiff_path, output_path], check=True, capture_output=True)
-            os.remove(aiff_path)
+            import asyncio
+            import edge_tts
+            async def _edge_generate():
+                communicate = edge_tts.Communicate(clean_for_say, voice_name, rate=rate, pitch=pitch)
+                await communicate.save(output_path)
+            asyncio.run(_edge_generate())
             if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
                 size_kb = os.path.getsize(output_path) / 1024
-                print(f"✅ Voice: {output_path} ({size_kb:.0f}KB, gender={gender}, voice={voice_name})")
+                print(f"✅ Voice (Edge TTS): {output_path} ({size_kb:.0f}KB, voice={voice_name}, rate={rate})")
                 return output_path
         except Exception as e:
-            print(f"⚠️ macOS say failed, falling back to gTTS: {e}")
+            print(f"⚠️ Edge TTS failed, falling back to macOS say: {e}")
+            # Fallback to macOS say
+            voice_name_say = random.choice(MALE_VOICES if gender == "male" else FEMALE_VOICES)
+            aiff_path = output_path.replace(".mp3", ".aiff")
+            try:
+                subprocess.run(["say", "-v", voice_name_say, "-o", aiff_path, clean_for_say], check=True, timeout=600)
+                subprocess.run(["ffmpeg", "-y", "-i", aiff_path, output_path], check=True, capture_output=True)
+                os.remove(aiff_path)
+                if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+                    size_kb = os.path.getsize(output_path) / 1024
+                    print(f"✅ Voice (say fallback): {output_path} ({size_kb:.0f}KB, voice={voice_name_say})")
+                    return output_path
+            except Exception as e2:
+                print(f"⚠️ macOS say also failed: {e2}")
 
     # Clean script
     clean = script.replace("*", "").replace("#", "").replace("_", "")
