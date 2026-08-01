@@ -587,7 +587,6 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
         img = _add_crypto_props(img, palette, layout)
 
         # ── Avatar face (host persona) ─────────────────────
-        img = _add_avatar_to_thumbnail(img, palette, layout, gender)
         draw = ImageDraw.Draw(img)
 
         # ── Bottom accent bar with earnings ──────────────────

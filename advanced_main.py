@@ -97,19 +97,6 @@ def make_complete_video():
         )
         if not video_path: raise RuntimeError("Video build failed")
 
-        # Avatar overlay (Wav2Lip)
-        try:
-            from avatar_gen import generate_avatar_clip, overlay_avatar_on_video
-            logger.info("🧑 Generating talking avatar overlay...")
-            avatar_clip = generate_avatar_clip(audio_path, run_id, gender=persona_gender)
-            if avatar_clip:
-                overlaid_path = video_path.replace(".mp4", "_avatar.mp4")
-                video_path = overlay_avatar_on_video(video_path, avatar_clip, overlaid_path)
-                logger.info(f"   Avatar overlay done: {video_path}")
-            else:
-                logger.info("   Avatar generation failed, using video without avatar")
-        except Exception as e:
-            logger.info(f"   Avatar overlay skipped due to error: {e}")
 
         logger.info("🖼️  Step 9/9: AI Thumbnail + Upload Brain...")
         os.makedirs(THUMBS_DIR, exist_ok=True)
