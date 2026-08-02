@@ -97,6 +97,17 @@ def make_complete_video():
         )
         if not video_path: raise RuntimeError("Video build failed")
 
+        # Add captions to video
+        try:
+            from caption_gen import add_captions_to_video
+            logger.info("📝 Adding captions to video...")
+            captioned_path = video_path.replace(".mp4", "_captioned.mp4")
+            video_path = add_captions_to_video(video_path, audio_path, captioned_path)
+            logger.info(f"   Captions added: {video_path}")
+        except Exception as e:
+            logger.info(f"   Captions skipped: {e}")
+
+
 
         logger.info("🖼️  Step 9/9: AI Thumbnail + Upload Brain...")
         os.makedirs(THUMBS_DIR, exist_ok=True)
