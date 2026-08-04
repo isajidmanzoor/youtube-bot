@@ -99,27 +99,75 @@ def get_trending_topic():
     return random.choice(TRENDING_TOPICS)
 
 
-def generate_viral_title():
-    """Generate a viral title with random variables, avoiding recent exact repeats."""
+def generate_viral_title(topic: str = None):
+    """Generate a 100% unique AI-powered viral title using Groq LLaMA."""
+    import json, os, requests
+
+    # Load recent titles to avoid repeats
     recent_titles = []
     try:
-        import json, os
         brain_file = os.path.expanduser("~/youtube_bot_data/brain_data.json")
         if os.path.exists(brain_file):
             with open(brain_file) as f:
                 data = json.load(f)
-            recent_titles = [v.get("title", "") for v in data.get("uploaded_videos", [])[-6:]]
+            recent_titles = [v.get("title", "") for v in data.get("uploaded_videos", [])[-20:]]
     except Exception:
         pass
 
+    recent_str = "\n".join(f"- {t}" for t in recent_titles[-10:]) if recent_titles else "None"
+    topic_hint = topic or random.choice(TRENDING_TOPICS)
+    platform = random.choice(PLATFORMS)
+    amount = random.choice(AMOUNTS)
+
+    prompt = f"""You are a viral YouTube title expert for a crypto airdrop channel.
+
+Generate 1 unique, click-worthy YouTube video title about: "{topic_hint}"
+
+Rules:
+- Must be completely different from these recent titles:
+{recent_str}
+- Include a specific dollar amount like ${amount}
+- Must create curiosity, urgency, or shock
+- Max 80 characters
+- No hashtags, no quotes in title
+- Use power words: EXPOSED, HIDDEN, SECRET, WARNING, URGENT, SHOCKING, REVEALED, etc.
+- Mention {platform} if relevant
+- Make it feel personal and authentic
+
+Reply with ONLY the title, nothing else."""
+
+    try:
+        from config import GROQ_API_KEY, GROQ_MODEL
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": GROQ_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 100,
+            "temperature": 0.9
+        }
+        resp = requests.post("https://api.groq.com/openai/v1/chat/completions",
+                           headers=headers, json=payload, timeout=15)
+        if resp.status_code == 200:
+            title = resp.json()["choices"][0]["message"]["content"].strip()
+            title = title.strip('"').strip("'").strip()
+            if title and len(title) > 10 and title not in recent_titles:
+                print(f"✅ AI Title: {title}")
+                return title
+    except Exception as e:
+        print(f"⚠️ AI title failed, using template: {e}")
+
+    # Fallback to template
     for _ in range(15):
         template = random.choice(VIRAL_HOOKS)
         title = template.format(
-            amount=random.choice(AMOUNTS),
+            amount=amount,
             days=random.choice(DAYS),
             num=random.choice(NUMS),
             minutes=random.choice(MINUTES),
-            platform=random.choice(PLATFORMS),
+            platform=platform,
         )
         if title not in recent_titles:
             return title
