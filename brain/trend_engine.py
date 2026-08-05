@@ -27,6 +27,98 @@ VIRAL_HOOKS = [
     "WARNING: You Are Losing ${amount} Every Month By NOT Doing Crypto Airdrops",
     "From Broke to ${amount}: My Complete Crypto Airdrop Story",
     "This {platform} Airdrop is Giving Away ${amount} to Early Users - Join Now",
+    # Shock/Discovery
+    "This SECRET {platform} Airdrop Is Making People ${amount} Per Day",
+    "I Accidentally Found a ${amount} Crypto Airdrop Nobody Knows About",
+    "This ${amount} Airdrop Has Been Hidden From You On Purpose",
+    "I Can't Believe This ${amount} Airdrop Is Still Available Right Now",
+    # Urgency
+    "HURRY: Only {days} Days Left To Claim This ${amount} {platform} Airdrop",
+    "LAST CHANCE: This ${amount} Airdrop Closes In {days} Days Forever",
+    "ACT NOW: Free ${amount} Crypto Airdrop Expires In {days} Days",
+    "ALERT: ${amount} Free Crypto Available But Only For {days} More Days",
+    "TIME SENSITIVE: Claim Your Free ${amount} Before This Airdrop Ends",
+    "CLOSING SOON: ${amount} {platform} Airdrop - Only {days} Days Left",
+    # Results/Proof
+    "I Made ${amount} From Crypto Airdrops This Week - Here Is Exactly How",
+    "Real Proof: I Withdrew ${amount} From This {platform} Airdrop Yesterday",
+    "I Claimed {num} Airdrops In One Day And Made ${amount} - Full Breakdown",
+    "My Honest Results After Doing Crypto Airdrops For 30 Days - ${amount}",
+    "I Documented Every Airdrop I Did This Month - Made ${amount} Total",
+    "Zero To ${amount}: My Complete Crypto Airdrop Journey This Month",
+    "Watch Me Turn $0 Into ${amount} Using Only Free Crypto Airdrops",
+    # Strategy
+    "The ${amount} Airdrop Strategy Rich People Use But Never Talk About",
+    "How Smart People Are Making ${amount} Monthly With {platform} Airdrops",
+    "The Exact Strategy I Used To Make ${amount} From Crypto Airdrops",
+    "Copy This Exact Airdrop Method That Made Me ${amount} This Month",
+    "The {platform} Airdrop Blueprint That Generated ${amount} For Me",
+    "How I Built A ${amount} Per Month Income Stream Using Only Free Airdrops",
+    # Speed/Easy
+    "Claim ${amount} In Free Crypto In Just {minutes} Minutes - Here How",
+    "The Easiest ${amount} You Will Ever Make - {minutes} Minute Airdrop",
+    "I Made ${amount} In {minutes} Minutes With This Simple Crypto Airdrop",
+    "This {minutes} Minute Trick Gets You ${amount} In Free Crypto Daily",
+    "Fastest ${amount} I Ever Made - This Airdrop Takes {minutes} Minutes",
+    "Lazy Person Guide To Making ${amount} With {minutes} Minute Airdrops",
+    # Beginner
+    "I Started With $0 And Made ${amount} With Crypto Airdrops - Here How",
+    "Complete Beginner Makes ${amount} With Crypto Airdrops - My Story",
+    "No Experience Needed: How I Made ${amount} With My First Crypto Airdrop",
+    "My First Crypto Airdrop Paid Me ${amount} - Step By Step Tutorial",
+    "If I Started Over Today I Would Do This ${amount} Airdrop First",
+    "Anyone Can Do This: ${amount} Crypto Airdrop For Complete Beginners",
+    # Comparison
+    "I Compared {num} Crypto Airdrops - This One Paid ${amount} The Most",
+    "Ranked: The Top {num} Airdrops That Actually Paid Me Real Money",
+    "I Did {num} Airdrops This Week - Here Are The Results",
+    "{num} Airdrops I Check Every Single Day To Earn ${amount} Monthly",
+    "I Tested Every Major {platform} Airdrop - Winner Paid ${amount}",
+    # Platform specific
+    "Nobody Told Me About This {platform} Airdrop - I Made ${amount}",
+    "{platform} Just Launched A ${amount} Airdrop And Nobody Is Talking",
+    "This New {platform} Airdrop Is Paying ${amount} To Early Claimers",
+    "How I Claimed ${amount} From The {platform} Airdrop In {minutes} Minutes",
+    "The {platform} Airdrop That Changed My Life - ${amount} In One Day",
+    "Breaking: {platform} Airdrop Now Live - ${amount} Available Per User",
+    # Question hooks
+    "Can You Really Make ${amount} With Free Crypto Airdrops? I Tested It",
+    "Is This ${amount} {platform} Airdrop Legit? My Honest Review",
+    "Why Are {num} People Claiming This ${amount} Airdrop Every Single Day?",
+    "Are Crypto Airdrops Still Worth It? I Made ${amount} Testing Them",
+    # Passive income
+    "How I Set Up A ${amount} Per Month Passive Income With Crypto Airdrops",
+    "Set This Up Once And Earn ${amount} Monthly From Crypto Airdrops",
+    "The ${amount} Monthly Side Hustle Nobody Is Talking About - Airdrops",
+    "I Built A ${amount} Per Day Income Stream Using Only Free Crypto Airdrops",
+    # Exclusive/Insider
+    "Insiders Are Quietly Making ${amount} With This {platform} Airdrop",
+    "The ${amount} Airdrop Only {num} People Know About Right Now",
+    "The Underground ${amount} Airdrop Strategy The Pros Use Daily",
+    "Exclusive: The ${amount} Airdrop That Top Crypto Traders Are Claiming",
+    # Story format
+    "How I Made ${amount} My First Week Doing Crypto Airdrops",
+    "I Quit My Job After Making ${amount} With Crypto Airdrops - Here Is How",
+    "My {num} Month Update: I Made ${amount} Total From Crypto Airdrops",
+    # Warning format
+    "Do NOT Miss This ${amount} {platform} Airdrop - It Closes Soon",
+    "Stop Wasting Time - This ${amount} Airdrop Is The Only One That Matters",
+    "Everyone Is Doing Airdrops Wrong - Here Is How I Made ${amount}",
+    "The Biggest Mistake People Make With Crypto Airdrops Costs Them ${amount}",
+    # Trending/News
+    "Breaking: New ${amount} Crypto Airdrop Just Launched - Claim Now",
+    "Just Announced: {platform} Is Giving Away ${amount} In Free Airdrops",
+    "Hot Right Now: The ${amount} {platform} Airdrop Everyone Is Claiming",
+    # Achievement
+    "From $0 To ${amount} In {days} Days Using Only Free Crypto Airdrops",
+    "Challenge: Can You Make ${amount} With Free Airdrops In {days} Days?",
+    "I Challenged Myself To Make ${amount} With Airdrops In {days} Days",
+    "Goal Achieved: ${amount} From Crypto Airdrops In Just {days} Days",
+    # Emotional
+    "This ${amount} Crypto Airdrop Literally Changed My Financial Life",
+    "I Was Broke Until I Found This ${amount} Crypto Airdrop Strategy",
+    "The ${amount} Airdrop That Helped Me Pay My Bills This Month",
+    "How I Made ${amount} From Airdrops While Unemployed - True Story",
 ]
 
 TRENDING_TOPICS = [
