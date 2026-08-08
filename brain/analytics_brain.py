@@ -141,8 +141,8 @@ def get_smart_topic() -> dict:
     """Smart topic selection based on what has NOT been done recently."""
     brain = _load_brain()
 
-    # Avoid last 8 used topics
-    recent_topics = [v.get("topic", "") for v in brain.get("uploaded_videos", [])[-8:]]
+    # Avoid last 30 used topics
+    recent_topics = [v.get("topic", "") for v in brain.get("uploaded_videos", [])[-30:]]
     available = [t for t in ALL_TOPICS if t not in recent_topics]
     if not available:
         available = ALL_TOPICS
