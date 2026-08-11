@@ -285,7 +285,9 @@ def _fetch_pexels_photo(query, cache_dir="output/thumbnails/_prop_cache"):
     import requests, hashlib
     from config import PEXELS_API_KEY
     os.makedirs(cache_dir, exist_ok=True)
-    cache_key = hashlib.md5(query.encode()).hexdigest()[:10]
+    # Add random salt so each run fetches a fresh unique photo
+    salt = str(random.randint(1, 999))
+    cache_key = hashlib.md5((query + salt).encode()).hexdigest()[:10]
     cache_path = os.path.join(cache_dir, f"{cache_key}.jpg")
     if os.path.exists(cache_path):
         return cache_path
