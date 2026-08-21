@@ -77,12 +77,28 @@ def make_complete_video():
         update_studio_dashboard("researching_visuals")
         query_pool = [
             data.get("search_query", "crypto"),
-            "cryptocurrency wallet", "blockchain", "bitcoin trading",
+            "cryptocurrency wallet", "blockchain technology", "bitcoin trading",
             "digital finance", "crypto investor", "money technology",
             "fintech app", "online banking", "stock market trading",
             "business laptop working", "financial charts graph",
+            "crypto mining rig", "ethereum coin", "digital currency exchange",
+            "trading desk monitors", "smartphone banking app", "crypto chart analysis",
+            "hands typing laptop", "business success money", "cash counting hands",
+            "office team meeting", "startup entrepreneur", "modern office workspace",
+            "data server room", "network technology abstract", "digital wallet phone",
+            "credit card payment", "investment growth chart", "handshake business deal",
+            "coding programmer screen", "crypto coins closeup", "gold coins stack",
+            "financial advisor meeting", "stock exchange floor", "young entrepreneur working",
+            "cryptocurrency mining farm", "digital transformation business", "fintech startup office",
+            "money growth concept", "blockchain network visualization", "crypto trader desk setup",
+            "wallet app interface", "banking technology future",
         ]
-        clips = fetch_pexels_videos(random.choice(query_pool), max(4,int(dur/40)+2), clip_dir)
+        total_needed = max(4, int(dur/40) + 2)
+        primary_q = random.choice(query_pool)
+        secondary_q = random.choice([q for q in query_pool if q != primary_q])
+        half = max(2, total_needed // 2)
+        clips = fetch_pexels_videos(primary_q, half, clip_dir)
+        clips += fetch_pexels_videos(secondary_q, total_needed - len(clips), clip_dir)
         logger.info(f"   {len(clips)} clips")
 
         logger.info("🎞️  Step 8/9: Building Video...")
