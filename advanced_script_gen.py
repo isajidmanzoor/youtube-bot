@@ -29,6 +29,28 @@ def generate_advanced_script(topic: str = None, intelligence: dict | None = None
 
     intelligence_prompt = _format_intelligence_for_prompt(intelligence) if intelligence else ""
 
+    # Add latest crypto news for current, relevant content
+    news_prompt = ""
+    try:
+        from news_fetcher import get_latest_crypto_news
+        news = get_latest_crypto_news(limit=3)
+        if news:
+            news_list = "\n".join(f"- {n}" for n in news)
+            news_prompt = f"\n\nLATEST CRYPTO NEWS (reference naturally if relevant, do not just read the headlines):\n{news_list}\n"
+    except Exception:
+        pass
+
+    # Add latest crypto news for current, relevant content
+    news_prompt = ""
+    try:
+        from news_fetcher import get_latest_crypto_news
+        news = get_latest_crypto_news(limit=3)
+        if news:
+            news_list = "\n".join(f"- {n}" for n in news)
+            news_prompt = f"\n\nLATEST CRYPTO NEWS (reference naturally if relevant, do not just read the headlines):\n{news_list}\n"
+    except Exception:
+        pass
+
     prompt = f"""You are an elite YouTube scriptwriter for a crypto education channel.
 Create a DETAILED 5-minute video script (750-850 words) about: "{e['topic']}"
 
@@ -50,7 +72,7 @@ The script should cover:
 Voice style: Energetic, conversational, like a friend sharing a secret. Use "you" frequently.
 NO robotic language. Sound like a real person.
 Use safe educational framing. Do not promise guaranteed profits. Warn viewers to verify official links, never share seed phrases, and avoid airdrops that ask for upfront payments.
-{intelligence_prompt}
+{intelligence_prompt}{news_prompt}
 
 Return ONLY this exact JSON format:
 {{
