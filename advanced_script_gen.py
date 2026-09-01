@@ -36,7 +36,7 @@ def generate_advanced_script(topic: str = None, intelligence: dict | None = None
         news = get_latest_crypto_news(limit=3)
         if news:
             news_list = "\n".join(f"- {n}" for n in news)
-            news_prompt = f"\n\nLATEST CRYPTO NEWS (reference naturally if relevant, do not just read the headlines):\n{news_list}\n"
+            news_prompt = f"\n\nIMPORTANT: You MUST reference at least one of these real recent crypto news events naturally in your script (in the credibility or intro section, mention it as context/proof that crypto is active right now):\n{news_list}\n"
     except Exception:
         pass
 
@@ -47,7 +47,7 @@ def generate_advanced_script(topic: str = None, intelligence: dict | None = None
         news = get_latest_crypto_news(limit=3)
         if news:
             news_list = "\n".join(f"- {n}" for n in news)
-            news_prompt = f"\n\nLATEST CRYPTO NEWS (reference naturally if relevant, do not just read the headlines):\n{news_list}\n"
+            news_prompt = f"\n\nIMPORTANT: You MUST reference at least one of these real recent crypto news events naturally in your script (in the credibility or intro section, mention it as context/proof that crypto is active right now):\n{news_list}\n"
     except Exception:
         pass
 
