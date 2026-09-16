@@ -123,6 +123,26 @@ def make_complete_video():
         except Exception as e:
             logger.info(f"   Captions skipped: {e}")
 
+        # Add breaking news ticker
+        try:
+            from moviepy.editor import VideoFileClip
+            from news_ticker import add_news_ticker
+            from news_fetcher import get_latest_crypto_news
+            logger.info("📰 Adding breaking news ticker...")
+            headlines = get_latest_crypto_news(limit=5)
+            if headlines:
+                clip = VideoFileClip(video_path)
+                ticker_video = add_news_ticker(clip, headlines)
+                ticker_path = video_path.replace(".mp4", "_ticker.mp4")
+                ticker_video.write_videofile(ticker_path, fps=clip.fps, codec="libx264", audio_codec="aac", logger=None)
+                clip.close()
+                ticker_video.close()
+                video_path = ticker_path
+                logger.info(f"   News ticker added: {video_path}")
+        except Exception as e:
+            logger.info(f"   News ticker skipped: {e}")
+
+
 
 
         logger.info("🖼️  Step 9/9: AI Thumbnail + Upload Brain...")
