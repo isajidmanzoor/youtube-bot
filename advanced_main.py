@@ -153,6 +153,43 @@ def make_complete_video():
         update_studio_dashboard("uploading")
         video_id = upload_video(video_path, title, data["description"], data["tags"], thumb)
         if video_id:
+            # Auto-reply to comments on previous videos
+            try:
+                from comment_replier import reply_to_comments
+                import json
+                brain_file = os.path.expanduser("~/youtube_bot_data/brain_data.json")
+                if os.path.exists(brain_file):
+                    with open(brain_file) as bf:
+                        brain = json.load(bf)
+                    recent_videos = brain.get("uploaded_videos", [])[-5:]
+                    for v in recent_videos:
+                        vid_id = v.get("video_id")
+                        vid_topic = v.get("topic", "crypto airdrops")
+                        if vid_id:
+                            replied = reply_to_comments(vid_id, vid_topic, max_replies=3)
+                            logger.info(f"   Auto-replied to {replied} comments on {vid_id}")
+            except Exception as e:
+                logger.info(f"   Auto-reply skipped: {e}")
+
+
+        # Auto-reply to comments on previous videos
+        try:
+            from comment_replier import reply_to_comments
+            import json
+            brain_file = os.path.expanduser("~/youtube_bot_data/brain_data.json")
+            if os.path.exists(brain_file):
+                with open(brain_file) as bf:
+                    brain = json.load(bf)
+                recent_videos = brain.get("uploaded_videos", [])[-5:]
+                for v in recent_videos:
+                    vid_id = v.get("video_id")
+                    vid_topic = v.get("topic", "crypto airdrops")
+                    if vid_id:
+                        replied = reply_to_comments(vid_id, vid_topic, max_replies=3)
+                        logger.info(f"   Auto-replied to {replied} comments on {vid_id}")
+        except Exception as e:
+            logger.info(f"   Auto-reply skipped: {e}")
+
             _pin_comment(video_id, data.get("comment",""))
             record_video(title, topic, video_id, title[:30], palette)
             check_and_learn()
