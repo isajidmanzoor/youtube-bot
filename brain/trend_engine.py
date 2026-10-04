@@ -311,7 +311,7 @@ Reply with ONLY the title, nothing else."""
             "Content-Type": "application/json"
         }
         payload = {
-            "model": GROQ_MODEL,
+            "model": GROQ_MODEL, "reasoning_effort": "low",
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 100,
             "temperature": 0.9

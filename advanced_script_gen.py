@@ -18,7 +18,7 @@ try:
     from config import GROQ_API_KEY, GROQ_MODEL
 except ImportError:
     GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-    GROQ_MODEL = "llama-3.3-70b-versatile"
+    GROQ_MODEL = "openai/gpt-oss-120b"
 
 
 def generate_advanced_script(topic: str = None, intelligence: dict | None = None):
@@ -101,7 +101,7 @@ Return ONLY this exact JSON format:
     }
 
     payload = {
-        "model": GROQ_MODEL,
+        "model": GROQ_MODEL, "reasoning_effort": "low",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 4000,
         "temperature": 0.92,

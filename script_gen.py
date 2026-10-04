@@ -116,7 +116,7 @@ IMPORTANT: The script MUST be 700-800 words. Make it sound natural, conversation
     }
 
     payload = {
-        "model": GROQ_MODEL,
+        "model": GROQ_MODEL, "reasoning_effort": "low",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 3000,
         "temperature": 0.9,

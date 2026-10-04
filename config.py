@@ -31,7 +31,7 @@ CLIP_DURATION         = int(os.getenv("CLIP_DURATION", "4"))
 UPLOAD_TIMES = ["08:00", "11:00", "14:00", "17:00", "19:00", "21:00"]
 
 # ── Groq Model ───────────────────────────────────────────────
-GROQ_MODEL            = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL            = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 GROQ_MAX_TOKENS       = int(os.getenv("GROQ_MAX_TOKENS", "3000"))
 
 # ── Paths ────────────────────────────────────────────────────

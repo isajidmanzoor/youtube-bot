@@ -44,7 +44,7 @@ def generate_reply(comment_text, author, topic):
     prompt = f"You are a friendly crypto YouTuber. Reply to this comment on your video about {topic}. Comment from {author}: {comment_text}. Write SHORT friendly 1-2 sentence reply only."
     try:
         headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-        payload = {"model": GROQ_MODEL, "messages": [{"role": "user", "content": prompt}], "max_tokens": 80, "temperature": 0.8}
+        payload = {"model": GROQ_MODEL, "reasoning_effort": "low", "messages": [{"role": "user", "content": prompt}], "max_tokens": 80, "temperature": 0.8}
         resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=15)
         if resp.status_code == 200:
             return resp.json()["choices"][0]["message"]["content"].strip()
