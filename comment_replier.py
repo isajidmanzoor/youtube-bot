@@ -41,10 +41,10 @@ def get_unanswered_comments(video_id, max_results=10):
 
 def generate_reply(comment_text, author, topic):
     from config import GROQ_API_KEY, GROQ_MODEL
-    prompt = f"You are a friendly crypto YouTuber. Reply to this comment on your video about {topic}. Comment from {author}: {comment_text}. Write SHORT friendly 1-2 sentence reply only."
+    prompt = f"You are a friendly crypto YouTuber. Reply to this comment on your video about {topic}. Comment from {author}: {comment_text}. Write a SHORT friendly 1-2 sentence reply only. NEVER say or imply any airdrop is legit, safe, guaranteed or that the person will earn money. If they ask whether something is legit, tell them to verify the official links themselves, never share seed phrases or private keys, and that this is not financial advice."
     try:
         headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-        payload = {"model": GROQ_MODEL, "reasoning_effort": "low", "messages": [{"role": "user", "content": prompt}], "max_tokens": 80, "temperature": 0.8}
+        payload = {"model": GROQ_MODEL, "reasoning_effort": "low", "messages": [{"role": "user", "content": prompt}], "max_tokens": 300, "temperature": 0.8}
         resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=15)
         if resp.status_code == 200:
             return resp.json()["choices"][0]["message"]["content"].strip()

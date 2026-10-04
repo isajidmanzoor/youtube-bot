@@ -313,7 +313,7 @@ Reply with ONLY the title, nothing else."""
         payload = {
             "model": GROQ_MODEL, "reasoning_effort": "low",
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 100,
+            "max_tokens": 400,
             "temperature": 0.9
         }
         resp = requests.post("https://api.groq.com/openai/v1/chat/completions",
