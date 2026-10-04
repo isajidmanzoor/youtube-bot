@@ -151,6 +151,17 @@ def _add_reaction_face(img, palette, seed_val):
             "amazed excited person reaction face",
             "surprised person mouth open reaction",
             "excited shocked face expression",
+            "man hands on head shocked",
+            "woman covering mouth surprised",
+            "wow expression young man",
+            "stunned person looking at phone",
+            "excited woman looking at laptop",
+            "shocked businessman reaction",
+            "surprised student looking at screen",
+            "man amazed holding phone",
+            "woman excited celebrating success",
+            "disbelief face closeup",
+            "happy surprised man pointing",
         ]
         query = random.choice(reaction_queries)
         photo_path = _fetch_pexels_photo(query, cache_dir="output/thumbnails/_reaction_cache")
@@ -466,6 +477,11 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
             "crypto trading dark background", "stock market neon city",
             "financial technology abstract", "digital money glow",
             "cryptocurrency network dark", "business success dramatic",
+            "bitcoin blockchain neon", "trading screen candlestick chart",
+            "futuristic city night lights", "abstract digital grid dark",
+            "gold coins dark background", "server room blue light",
+            "glowing data network", "city skyline night finance",
+            "dark abstract particles", "neon circuit board",
         ]
         bg_photo_path = _fetch_pexels_photo(random.choice(bg_queries), cache_dir="output/thumbnails/_bg_cache")
         if bg_photo_path:
