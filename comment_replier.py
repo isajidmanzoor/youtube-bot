@@ -9,6 +9,11 @@ def get_youtube_service():
 
 def get_unanswered_comments(video_id, max_results=10):
     youtube = get_youtube_service()
+    own_id = None
+    try:
+        own_id = youtube.channels().list(part='id', mine=True).execute()['items'][0]['id']
+    except Exception:
+        pass
     try:
         response = youtube.commentThreads().list(
             part='snippet,replies',
@@ -20,6 +25,9 @@ def get_unanswered_comments(video_id, max_results=10):
         for item in response.get('items', []):
             comment = item['snippet']['topLevelComment']['snippet']
             reply_count = item['snippet']['totalReplyCount']
+            author_channel = comment.get('authorChannelId', {}).get('value')
+            if own_id and author_channel == own_id:
+                continue
             if reply_count == 0:
                 unanswered.append({
                     'id': item['snippet']['topLevelComment']['id'],

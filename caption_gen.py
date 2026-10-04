@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip
 
@@ -38,7 +39,7 @@ def make_caption_clip(word, video_w, video_h, duration):
     draw.text((6, 6), word, font=font, fill=(0, 0, 0, 200))
     draw.rounded_rectangle([0, 0, tw, th], radius=10, fill=(255, 220, 0, 230))
     draw.text((20, 10), word, font=font, fill=(0, 0, 0, 255))
-    clip = ImageClip(img).set_duration(duration)
+    clip = ImageClip(np.array(img)).set_duration(duration)
     clip = clip.set_position(("center", int(video_h * 0.78)))
     return clip
 
