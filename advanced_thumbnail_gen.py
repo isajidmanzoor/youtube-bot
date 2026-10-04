@@ -280,6 +280,30 @@ def _draw_wallet(draw, x, y, w, h, palette):
                  fill=palette["secondary"])
 
 
+USED_PHOTOS_FILE = os.path.expanduser("~/youtube_bot_data/used_photos.json")
+
+def _load_used_photos():
+    import json as _json
+    try:
+        with open(USED_PHOTOS_FILE) as f:
+            return set(_json.load(f))
+    except Exception:
+        return set()
+
+def _remember_photo(pid):
+    import json as _json
+    if pid is None:
+        return
+    try:
+        os.makedirs(os.path.dirname(USED_PHOTOS_FILE), exist_ok=True)
+        ids = list(_load_used_photos())
+        ids.append(pid)
+        with open(USED_PHOTOS_FILE, "w") as f:
+            _json.dump(ids[-300:], f)
+    except Exception:
+        pass
+
+
 def _fetch_pexels_photo(query, cache_dir="output/thumbnails/_prop_cache"):
     """Fetch a real stock photo from Pexels (photos API, not videos) and cache it."""
     import requests, hashlib
@@ -293,13 +317,21 @@ def _fetch_pexels_photo(query, cache_dir="output/thumbnails/_prop_cache"):
         return cache_path
     try:
         headers = {"Authorization": PEXELS_API_KEY}
-        params = {"query": query, "per_page": 5, "page": random.randint(1, 3)}
+        params = {"query": query, "per_page": 40, "page": random.randint(1, 4)}
         r = requests.get("https://api.pexels.com/v1/search", headers=headers, params=params, timeout=15)
         r.raise_for_status()
         photos = r.json().get("photos", [])
+        if not photos and params["page"] != 1:
+            params["page"] = 1
+            r = requests.get("https://api.pexels.com/v1/search", headers=headers, params=params, timeout=15)
+            r.raise_for_status()
+            photos = r.json().get("photos", [])
         if not photos:
             return None
-        photo = random.choice(photos)
+        used = _load_used_photos()
+        fresh = [p for p in photos if p.get("id") not in used] or photos
+        photo = random.choice(fresh)
+        _remember_photo(photo.get("id"))
         img_url = photo["src"]["large"]
         img_data = requests.get(img_url, timeout=15).content
         with open(cache_path, "wb") as f:
