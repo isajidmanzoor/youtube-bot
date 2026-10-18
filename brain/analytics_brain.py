@@ -143,9 +143,11 @@ def get_smart_topic() -> dict:
 
     # Avoid last 30 used topics
     recent_topics = [v.get("topic", "") for v in brain.get("uploaded_videos", [])[-30:]]
-    available = [t for t in ALL_TOPICS if t not in recent_topics]
+    from brain.trend_engine import TRENDING_TOPICS
+    pool = list(dict.fromkeys(list(ALL_TOPICS) + list(TRENDING_TOPICS)))
+    available = [t for t in pool if t not in recent_topics]
     if not available:
-        available = ALL_TOPICS
+        available = pool
 
     topic = random.choice(available)
 
