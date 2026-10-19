@@ -64,6 +64,10 @@ def generate_advanced_voiceover(script: str, filename: str, voice_profile: dict 
         clean_for_say = script.replace("*", "").replace("#", "").replace("_", "")
         clean_for_say = clean_for_say.replace("👉", "").replace("✅", "").replace("🔥", "")
         clean_for_say = clean_for_say.replace("💰", "").replace("🚀", "").replace("⚡", "")
+        import re as _re
+        clean_for_say = _re.sub(r"\[[^\]]*\]", " ", clean_for_say)
+        clean_for_say = _re.sub(r"\(\s*\d{1,2}:\d{2}[^)]*\)", " ", clean_for_say)
+        clean_for_say = _re.sub(r"(?i)\b(hook|scene|cta|outro|intro|narrator|voice-?over)\s*:\s*", " ", clean_for_say)
         clean_for_say = " ".join(clean_for_say.split())
         # Try Edge TTS first (much more natural)
         voice_pool = MALE_VOICES_EDGE if gender == "male" else FEMALE_VOICES_EDGE
