@@ -28,3 +28,17 @@ runsvc.sh
 run-helper.*
 safe_sleep.sh
 svc.sh
+
+# GitHub Actions self-hosted runner files (never commit)
+bin*/
+externals*/
+_work/
+_diag/
+_temp/
+.runner*
+.credentials*
+.env
+.path
+.service
+*.tar.gz
+.vscode/
