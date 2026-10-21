@@ -42,3 +42,5 @@ _temp/
 .service
 *.tar.gz
 .vscode/
+bin
+externals
