@@ -87,52 +87,41 @@ def record_video(title: str, topic: str, video_id: str, title_style: str, palett
 
 
 def check_and_learn(youtube_api_key: str = None):
-    """
-    Check real YouTube performance and learn from it.
-    Updates view counts for uploaded videos.
-    """
+    """Refresh real view counts from YouTube using the OAuth token (1 quota unit per 50 videos)."""
     brain = _load_brain()
-    videos = brain.get("uploaded_videos", [])
-
-    if not videos or not youtube_api_key:
+    videos = [v for v in brain.get("uploaded_videos", []) if v.get("video_id")]
+    if not videos:
         print("🧠 Brain: No videos to analyze yet")
         return
-
-    # Check views for last 10 videos
-    recent = [v for v in videos if v.get("video_id")][-10:]
-    ids = ",".join([v["video_id"] for v in recent])
-
     try:
-        url = f"https://www.googleapis.com/youtube/v3/videos?part=statistics&id={ids}&key={youtube_api_key}"
-        resp = requests.get(url, timeout=15)
-        data = resp.json()
-
+        import pickle
+        from googleapiclient.discovery import build
+        with open("youtube_token.pickle", "rb") as f:
+            creds = pickle.load(f)
+        yt = build("youtube", "v3", credentials=creds, cache_discovery=False)
         view_data = {}
-        for item in data.get("items", []):
-            vid = item["id"]
-            views = int(item.get("statistics", {}).get("viewCount", 0))
-            view_data[vid] = views
-
-        # Update brain with real views
+        recent = videos[-50:]
+        resp = yt.videos().list(part="statistics", id=",".join(v["video_id"] for v in recent)).execute()
+        for item in resp.get("items", []):
+            view_data[item["id"]] = int(item.get("statistics", {}).get("viewCount", 0))
         for v in brain["uploaded_videos"]:
             if v.get("video_id") in view_data:
                 v["views"] = view_data[v["video_id"]]
-
-        # Find best performing palette
-        palette_views = {}
-        for v in brain["uploaded_videos"]:
-            p = v.get("palette", "")
-            views = v.get("views", 0)
-            if p:
-                palette_views[p] = palette_views.get(p, 0) + views
-
-        if palette_views:
-            brain["best_palette"] = max(palette_views, key=palette_views.get)
-            print(f"🧠 Brain learned: Best palette = {brain['best_palette']}")
-
+        total = sum(view_data.values())
+        print(f"🧠 Brain: refreshed {len(view_data)} videos, total views {total}")
+        # Only learn a "best palette" when there is real signal, otherwise it is just noise
+        if total >= 50:
+            pv = {}
+            for v in brain["uploaded_videos"]:
+                if v.get("palette") and v.get("video_id") in view_data:
+                    pv.setdefault(v["palette"], []).append(v.get("views", 0))
+            avg = {k: sum(x) / len(x) for k, x in pv.items() if len(x) >= 3}
+            if avg:
+                brain["best_palette"] = max(avg, key=avg.get)
+                print(f"🧠 Brain learned: Best palette = {brain['best_palette']}")
+        else:
+            brain["best_palette"] = None
         _save_brain(brain)
-        print(f"🧠 Brain: Updated {len(view_data)} video stats")
-
     except Exception as e:
         print(f"⚠️  Brain analytics failed: {e}")
 
