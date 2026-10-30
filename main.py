@@ -74,6 +74,7 @@ def make_one_video(topic: str = None) -> dict:
             description=data["description"],
             tags=data["tags"],
             thumbnail_path=thumb_path,
+            link_comment="🔗 Platform from the video (affiliate): https://i.mec.me/?c=pt6wsw2v\n🛡️ Verify official links and never share your seed phrase.",
         )
 
         if video_id:

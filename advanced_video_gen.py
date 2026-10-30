@@ -196,8 +196,8 @@ def build_advanced_video(
             (total_dur * 0.28, 3.5, "STEP BY STEP GUIDE", "white"),
             (total_dur * 0.45, 3.5, "PRO TIPS", "cyan"),
             (total_dur * 0.62, 3.5, "AVOID THESE MISTAKES", "red"),
-            (total_dur * 0.78, 3.5, "REAL WITHDRAWAL PROOF", "lime"),
-            (total_dur * 0.90, 3.5, "JOIN FREE - LINK BELOW", "yellow"),
+            (total_dur * 0.78, 3.5, "REALITY CHECK", "lime"),
+            (total_dur * 0.90, 3.5, "LINK IN DESCRIPTION", "yellow"),
         ]
 
         for start_t, dur, text, color in scene_labels:
@@ -225,7 +225,7 @@ def build_advanced_video(
         # 5. Subscribe CTA (last 12 seconds)
         sub_start = max(0, total_dur - 12)
         sub = _try_text(
-            "LIKE & SUBSCRIBE for daily FREE CRYPTO tips!",
+            "LIKE & SUBSCRIBE for daily crypto guides!",
             34, "white", min(12, total_dur),
             ("center", VIDEO_HEIGHT - 115),
             sub_start

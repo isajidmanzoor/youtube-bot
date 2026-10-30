@@ -42,10 +42,10 @@ def create_short(clip_paths, audio_path, title, filename, output_dir="output/sho
         audio = audio.subclip(0, audio_dur)
         layers = [bg]
         for txt, color, ypos in [
-            ("🔥 FREE CRYPTO AIRDROP", "yellow", 80),
+            ("CRYPTO AIRDROP GUIDE", "yellow", 80),
             (title[:55]+"..." if len(title)>55 else title, "white", SHORTS_H//2-100),
-            (random.choice(["💰 Link in Description!","👇 Join FREE Below!","🚀 Start Earning Now!"]), "lime", SHORTS_H//2+150),
-            ("✅ NO INVESTMENT NEEDED", "white", SHORTS_H-200),
+            (random.choice(["👇 Link in Description","Full guide on the channel","Watch the full video"]), "lime", SHORTS_H//2+150),
+            ("NEVER SHARE YOUR SEED PHRASE", "white", SHORTS_H-200),
         ]:
             c = _try_text(txt, 50, color, audio_dur, ("center", ypos))
             if c: layers.append(c)
@@ -65,7 +65,7 @@ def upload_short(video_path, title, description, tags):
         short_id = upload_video(
             video_path=video_path,
             title=f"#Shorts {title[:85]}",
-            description=f"#Shorts #CryptoAirdrop #FreeCrypto\n\n💰 Join FREE:\n👉 {AFFILIATE_LINK}",
+            description=f"{title}\n\n🔗 Platform I mention (affiliate link, I may earn a commission):\n👉 {AFFILIATE_LINK}\n\nEducational only, not financial advice.\n\n#Shorts #CryptoAirdrop #CryptoEducation",
             tags=tags + ["shorts","youtubeshorts","crypto shorts"],
             privacy="public",
         )

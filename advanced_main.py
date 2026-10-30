@@ -201,7 +201,7 @@ def _pin_comment(video_id, comment_text):
         with open("youtube_token.pickle","rb") as f: creds = pickle.load(f)
         if creds.expired and creds.refresh_token: creds.refresh(Request())
         service = build("youtube","v3",credentials=creds)
-        if not comment_text: comment_text = f"🔥 FREE CRYPTO!\n👉 {AFFILIATE_LINK}\n✅ No investment needed!"
+        if not comment_text: comment_text = f"What should I cover next? 👇\n\n🔗 Platform from the video (affiliate): {AFFILIATE_LINK}\n🛡️ Verify official links and never share your seed phrase."
         service.commentThreads().insert(part="snippet",body={"snippet":{"videoId":video_id,"topLevelComment":{"snippet":{"textOriginal":comment_text}}}}).execute()
         logger.info("✅ Comment pinned")
     except Exception as e: logger.warning(f"⚠️ Comment: {e}")

@@ -111,7 +111,7 @@ def generate_thumbnail(title: str, filename: str) -> str | None:
                   fill=scheme["accent"], anchor="rt")
 
         # ── Money badge (random position) ─────────────────────
-        badge_texts = ["FREE", "EARN NOW", "REAL MONEY", "LIVE PROOF", "CLICK NOW", "JOIN FREE"]
+        badge_texts = ["GUIDE", "STEP BY STEP", "BEGINNER", "AVOID THIS", "EXPLAINED", "CHECKLIST"]
         badge = random.choice(badge_texts)
         badge_font = _get_font(36)
         bx = random.choice([30, THUMB_W - 200])

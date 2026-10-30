@@ -29,9 +29,9 @@ PALETTES = [
 ]
 
 BADGE_TEXTS = [
-    "FREE", "EARN NOW", "REAL MONEY", "LIVE PROOF",
-    "CLICK NOW", "JOIN FREE", "PAID DAILY", "LEGIT",
-    "WORKING 2025", "NO SCAM", "INSTANT PAY", "TRY NOW",
+    "GUIDE", "STEP BY STEP", "BEGINNER", "AVOID THIS",
+    "WATCH FIRST", "EXPLAINED", "CHECKLIST", "SAFETY",
+    "NEW", "HOW TO", "WARNING", "TUTORIAL",
 ]
 
 LAYOUTS = [
@@ -644,11 +644,11 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
         draw.rectangle([0, THUMB_H - bar_h, THUMB_W, THUMB_H], fill=palette["primary"])
         earn_font = _get_font(32)
         earn_texts = [
-            "💰 FREE TO JOIN - LINK IN DESCRIPTION",
-            "🔥 CLAIM YOUR FREE CRYPTO TODAY",
-            "✅ NO INVESTMENT NEEDED - START NOW",
-            "🚀 EARN DAILY - 100% FREE",
-            "💎 JOIN THOUSANDS EARNING FREE CRYPTO",
+            "STEP BY STEP GUIDE",
+            "BEGINNER FRIENDLY WALKTHROUGH",
+            "WHAT MOST PEOPLE GET WRONG",
+            "AVOID THESE MISTAKES",
+            "FULL GUIDE + SAFETY CHECKLIST",
         ]
         earn_text = random.choice(earn_texts)
         draw.text((THUMB_W // 2, THUMB_H - bar_h // 2), earn_text,

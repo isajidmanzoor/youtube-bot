@@ -57,6 +57,7 @@ def upload_video(
     thumbnail_path: str = None,
     privacy: str = None,
     max_retries: int = 3,
+    link_comment: str = None,
 ) -> str | None:
     """
     YouTube pe video upload karo.
@@ -114,23 +115,25 @@ def upload_video(
             video_id = response["id"]
             print(f"\n✅ Uploaded! https://youtube.com/watch?v={video_id}")
 
-            # Add pinned comment with link
+            # Optional link comment — only when the caller asks for one, so each
+            # video gets a single link comment (duplicates trip YouTube's spam filter)
             try:
-                comment_body = {
-                    "snippet": {
-                        "videoId": video_id,
-                        "topLevelComment": {
-                            "snippet": {
-                                "textOriginal": "Join free airdrop and earn real crypto daily! Link: https://i.mec.me/?c=pt6wsw2v"
+                if link_comment:
+                    comment_body = {
+                        "snippet": {
+                            "videoId": video_id,
+                            "topLevelComment": {
+                                "snippet": {
+                                    "textOriginal": link_comment
+                                }
                             }
                         }
                     }
-                }
-                service.commentThreads().insert(
-                    part="snippet",
-                    body=comment_body
-                ).execute()
-                print(f"✅ Comment added for {video_id}")
+                    service.commentThreads().insert(
+                        part="snippet",
+                        body=comment_body
+                    ).execute()
+                    print(f"✅ Comment added for {video_id}")
             except Exception as ce:
                 print(f"⚠️  Comment failed: {ce}")
 
