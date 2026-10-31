@@ -58,13 +58,17 @@ def create_short(clip_paths, audio_path, title, filename, output_dir="output/sho
         print(f"❌ Short failed: {e}")
     return None
 
-def upload_short(video_path, title, description, tags):
+def upload_short(video_path, title, description, tags, main_video_id=None, hook=None):
     try:
         from youtube_uploader import upload_video
+        # Searchable title first, #Shorts at the end; the hook opens the description
+        short_title = f"{title[:90]} #Shorts"
+        full = f"▶️ Full video: https://youtu.be/{main_video_id}\n\n" if main_video_id else ""
+        title = f"{hook.capitalize()}: {title}" if hook else title
         short_id = upload_video(
             video_path=video_path,
-            title=f"#Shorts {title[:85]}",
-            description=f"{title}\n\n🔗 Platform I mention (affiliate link, I may earn a commission):\n👉 {AFFILIATE_LINK}\n\nEducational only, not financial advice.\n\n#Shorts #CryptoAirdrop #CryptoEducation",
+            title=short_title,
+            description=f"{title}\n\n{full}🔗 Platform I mention (affiliate link, I may earn a commission):\n👉 {AFFILIATE_LINK}\n\nEducational only, not financial advice.\n\n#Shorts #CryptoAirdrop #CryptoEducation",
             tags=tags + ["shorts","youtubeshorts","crypto shorts"],
             privacy="public",
         )

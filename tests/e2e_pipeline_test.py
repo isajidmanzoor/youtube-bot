@@ -30,7 +30,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ap = argparse.ArgumentParser()
 ap.add_argument("--render", type=int, default=1, help="videos rendered for real with moviepy (incl. a 1080x1920 short, slow)")
 ap.add_argument("--soak", type=int, default=25, help="videos run with rendering stubbed, to test uniqueness")
-ap.add_argument("--voice-seconds", type=float, default=24.0)
+ap.add_argument("--voice-seconds", type=float, default=60.0, help="voice length of the rendered videos")
+ap.add_argument("--soak-voice-seconds", type=float, default=300.0, help="voice length of the soak videos (5 min, like production)")
 ap.add_argument("--keep", action="store_true", help="keep the temp work dir")
 args = ap.parse_args()
 
@@ -122,13 +123,19 @@ def fake_llm(prompt):
         body += [_sentence() for _ in range(rng.randint(62, 80))]
         body.insert(20, "Never share your seed phrase and always verify the official link.")
         body.append("The link in the description is an affiliate link, so I may earn a commission. What would you check first?")
+        sentences = [b for b in body if b]
+        step = len(sentences) / n_scenes  # spread over the script, like the prompt asks
+        picks = [int(k * step) + rng.randint(-1, 1) for k in range(1, n_scenes)]
+        says = [sentences[0]] + [sentences[k] for k in picks]
+        # the model sometimes changes a word; one scene gets a small difference
+        says[2] = re.sub(r"\b\w+\b", "uh", says[2], count=1)
         data = {
             "title": title,
             "curiosity_question": f"Which {_phrase(3)} matters most?",
             "payoff": _sentence(),
             "thumbnail_text": _phrase(3).upper(),
             "script": " ".join(body),
-            "scenes": [{"time": f"{i}:{rng.randint(0, 5)}0", "scene": _phrase(2).title(),
+            "scenes": [{"time": f"{i // 2}:{rng.randint(0, 5)}0", "scene": _phrase(2).title(), "says": " ".join(says[i].split()[:8]),
                         "visual": _phrase(2), "text_overlay": _phrase(4)} for i in range(n_scenes)],
             "description_intro": _sentence() + " " + _sentence(),
             "tags": [_phrase(2) for _ in range(10)],
@@ -149,7 +156,8 @@ def fake_post(url, headers=None, json=None, timeout=None, **kw):
     return Resp(404, {})
 
 
-PEXELS_CATALOG = 600  # small on purpose: forces the "look at more pages" path
+PEXELS_CATALOG = 6000  # real Pexels has far more; section 4b shrinks it to test running out
+PEXELS_PAGES = []
 
 
 def fake_get(url, timeout=None, params=None, headers=None, stream=False, **kw):
@@ -157,10 +165,12 @@ def fake_get(url, timeout=None, params=None, headers=None, stream=False, **kw):
         return Resp(200, text="<title><![CDATA[Ethereum fees fall after upgrade]]></title>")
     if "api.pexels.com/videos/search" in url:
         per, page = params["per_page"], params["page"]
-        # like the real API, each search text has its own result list
-        start = (zlib.crc32(params["query"].encode()) + (page - 1) * per) % PEXELS_CATALOG
-        ids = [(start + k) % PEXELS_CATALOG + 1 for k in range(per)]
-        return Resp(200, {"videos": [{"id": i, "video_files": [
+        # like the real API, each search text has its own result list of limited size
+        total = 30 + zlib.crc32(params["query"].encode()) % 50
+        start = zlib.crc32(params["query"].encode()) % PEXELS_CATALOG
+        ids = [(start + k) % PEXELS_CATALOG + 1 for k in range((page - 1) * per, min(total, page * per))]
+        PEXELS_PAGES.append(page)
+        return Resp(200, {"total_results": total, "videos": [{"id": i, "video_files": [
             {"file_type": "video/mp4", "width": 640, "link": f"https://fake.pexels/v/{i}.mp4"}]} for i in ids]})
     if url.startswith("https://fake.pexels/v/"):
         i = int(url.rsplit("/", 1)[1].split(".")[0])
@@ -181,18 +191,35 @@ VOICE = {"seconds": args.voice_seconds}
 
 
 class Communicate:
-    def __init__(self, text, voice, rate=None, pitch=None):
-        self.text = text
+    def __init__(self, text, voice, rate=None, pitch=None, boundary="SentenceBoundary"):
+        self.text, self.boundary = text, boundary
 
     async def save(self, path):
         make_voice(path, VOICE["seconds"])
 
+    async def stream(self):
+        tmp = os.path.join(MEDIA, "voice_tmp.mp3")
+        make_voice(tmp, VOICE["seconds"])
+        yield {"type": "audio", "data": open(tmp, "rb").read()}
+        words = self.text.split()
+        weights = [1 + 0.15 * len(w) + (2.5 if w[-1] in ".?!" else 0) for w in words]
+        scale = VOICE["seconds"] * 0.97 / sum(weights)
+        t = 0.3
+        for w, wt in zip(words, weights):
+            VOICE_WORDS.append((t, w))
+            yield {"type": "WordBoundary", "offset": int(t * 1e7), "duration": int(wt * scale * 0.7 * 1e7), "text": w.strip(".,?!")}
+            t += wt * scale
+
+
+VOICE_WORDS = []
+
 
 sys.modules["edge_tts"] = types.SimpleNamespace(Communicate=Communicate)
+Communicate.__signature__ = None  # inspect.signature reads __init__
 sys.modules["gtts"] = types.SimpleNamespace(gTTS=None)
 
 # YouTube API
-API = {"inserts": [], "comments": []}
+API = {"inserts": [], "comments": [], "playlists": [], "playlist_items": []}
 
 
 class Exec:
@@ -226,6 +253,20 @@ class Service:
             def list(self, **kw):
                 return Exec(lambda: {"items": []})
         return C()
+
+    def playlists(self):
+        class P:
+            def insert(self, part, body):
+                API["playlists"].append(body["snippet"]["title"])
+                return Exec(lambda: {"id": f"PL{len(API['playlists'])}"})
+        return P()
+
+    def playlistItems(self):
+        class I:
+            def insert(self, part, body):
+                API["playlist_items"].append((body["snippet"]["playlistId"], body["snippet"]["resourceId"]["videoId"]))
+                return Exec(lambda: {})
+        return I()
 
     def thumbnails(self):
         class T:
@@ -262,6 +303,31 @@ import advanced_main  # noqa: E402
 import advanced_script_gen  # noqa: E402
 from advanced_video_gen import plan_clip_windows, _scene_labels_from_plan  # noqa: E402
 from brain import uniqueness as U  # noqa: E402
+import scene_sync  # noqa: E402
+from advanced_thumbnail_gen import _fit_title  # noqa: E402
+
+TIMELINES, PLANS = [], []
+_orig_timeline = advanced_main.scene_timeline
+
+
+def capture_timeline(script, scenes, audio_path, total_dur):
+    tl = _orig_timeline(script, scenes, audio_path, total_dur)
+    TIMELINES.append({"timeline": tl, "words": scene_sync.load_word_times(audio_path), "dur": total_dur,
+                      "scenes": scenes})
+    return tl
+
+
+advanced_main.scene_timeline = capture_timeline
+_orig_plan = scene_sync.plan_scene_segments
+
+
+def capture_plan(timeline, scene_clips, durations, *a, **k):
+    plan, repeats = _orig_plan(timeline, scene_clips, durations, *a, **k)
+    PLANS.append({"plan": plan, "repeats": repeats, "timeline": timeline, "scene_clips": scene_clips, "durations": durations})
+    return plan, repeats
+
+
+scene_sync.plan_scene_segments = capture_plan
 
 FAILS = []
 
@@ -311,7 +377,9 @@ def run_one(tag, render=True):
             return p
         advanced_main.build_advanced_video = fake_render
         advanced_main.create_short = lambda *a, **k: None
+    n_timelines = len(TIMELINES)
     r = advanced_main.make_complete_video()
+    r["timeline"] = TIMELINES[-1] if len(TIMELINES) > n_timelines else None
     r["clips"] = [os.path.basename(c) for c in FETCHED[-1]]
     r["new_inserts"] = API["inserts"][n_inserts:]
     r["new_comments"] = API["comments"][n_comments:]
@@ -343,12 +411,29 @@ for i in range(args.render):
     check(len(thumbs) >= i + 1, f"render {i + 1}: thumbnail written")
     shorts = os.listdir("output/shorts") if os.path.isdir("output/shorts") else []
     check(len(shorts) >= i + 1, f"render {i + 1}: short rendered")
-    main_uploads = [b for b in r["new_inserts"] if not b["snippet"]["title"].startswith("#Shorts")]
-    short_uploads = [b for b in r["new_inserts"] if b["snippet"]["title"].startswith("#Shorts")]
+    main_uploads = [b for b in r["new_inserts"] if not b["snippet"]["title"].endswith("#Shorts")]
+    short_uploads = [b for b in r["new_inserts"] if b["snippet"]["title"].endswith("#Shorts")]
     check(len(main_uploads) == 1 and len(short_uploads) == 1, f"render {i + 1}: 1 main + 1 short uploaded")
     check(len(r["new_comments"]) == 1, f"render {i + 1}: exactly one comment")
+    pl = PLANS[-1]
+    plan, tl = pl["plan"], pl["timeline"]
+    check(pl["repeats"] == 0, f"render {i + 1}: no footage repeated ({len(plan)} segments)")
+    ends = [round(at + ln, 2) for _, _, at, ln in plan]
+    check(plan[0][2] == 0 and all(abs(a - b[2]) < 0.05 for a, b in zip(ends, plan[1:])) and abs(ends[-1] - tl[-1]["end"]) < 0.05,
+          f"render {i + 1}: segments cover the whole voice with no gaps")
+    own = 0
+    for path, _, at, ln in plan:
+        k = max(j for j, item in enumerate(tl) if item["start"] <= at + 0.01)
+        own += path in pl["scene_clips"].get(k, [])
+    check(own == len(plan), f"render {i + 1}: every segment shows its own scene's footage ({own}/{len(plan)})")
+    if short_uploads:
+        sd = short_uploads[0]["snippet"]["description"]
+        check(f"youtu.be/{r['video_id']}" in sd, f"render {i + 1}: the short links to the full video")
+    frames = [f for f in os.listdir("output/thumbnails") if f.endswith("_frame.jpg")]
+    check(len(frames) >= i + 1, f"render {i + 1}: thumbnail background is a frame from the video")
 
 print(f"\n=== 2. Soak: {args.soak} more videos in a row (render stubbed)")
+VOICE["seconds"] = args.soak_voice_seconds
 for i in range(args.soak):
     run_one(f"soak {i + 1}", render=False)
 
@@ -392,6 +477,65 @@ check(all("i.mec.me/?c=pt6wsw2v" in d["description"] and "ffiliate" in d["descri
       "every description has the link + affiliate disclosure")
 check(all("i.mec.me/?c=pt6wsw2v" in d["comment"] for d in datas), "every comment has the link")
 check(all(len(r["new_comments"]) == 1 for r in ok), "exactly one comment per main video")
+
+print("\n=== 2a. Thumbnail faces and SEO")
+reactions = mem_now = json.load(open(U.MEMORY_FILE)).get("reaction_photo", [])
+n_thumbs = len(json.load(open(U.MEMORY_FILE)).get("thumb_layout", []))
+check(len(reactions) == n_thumbs and len(set(reactions)) == len(reactions),
+      f"every thumbnail has its own shocked face, never reused ({len(set(reactions))} faces / {n_thumbs} thumbnails)")
+rq = json.load(open(U.MEMORY_FILE)).get("reaction_query", [])
+check(all(a != b for a, b in zip(rq, rq[1:])), "reaction face search rotates (no two in a row alike)")
+mains = [b for b in API["inserts"] if not b["snippet"]["title"].endswith("#Shorts")]
+check(all(len(b["snippet"]["title"]) <= 70 for b in mains), f"all titles fit in search results (max {max(len(b['snippet']['title']) for b in mains)} chars)")
+tag_chars = [sum(len(t) + (2 if " " in t else 0) for t in b["snippet"]["tags"]) + len(b["snippet"]["tags"]) - 1 for b in API["inserts"]]
+check(max(tag_chars) <= 500, f"tags stay inside YouTube's 500-character limit (max {max(tag_chars)})")
+check(all(len({t.lower() for t in b["snippet"]["tags"]}) == len(b["snippet"]["tags"]) for b in API["inserts"]), "no duplicate tags")
+vids = [r["video_id"] for r in ok]
+in_playlist = {v for _, v in API["playlist_items"]}
+check(all(v in in_playlist for v in vids), "every video is added to its series playlist")
+check(len(API["playlists"]) == len(set(API["playlists"])), f"each series playlist is created once ({len(API['playlists'])} playlists)")
+descs = [b["snippet"]["description"] for b in mains]
+watch_next = [d for d in descs[1:] if "▶️ WATCH NEXT" in d]
+check(len(watch_next) == len(descs) - 1, f"every video after the first links to the previous one ({len(watch_next)}/{len(descs) - 1})")
+
+print("\n=== 2b. Footage and labels follow the voice")
+soak = [r for r in ok if r.get("timeline") and r["timeline"]["dur"] > 200]
+worst_off, matched, total_scenes = 0.0, 0, 0
+for r in soak:
+    t = r["timeline"]
+    words = [(tm, w.lower().strip(".,?!")) for tm, w in t["words"]]
+    for item in t["timeline"]:
+        says = scene_sync._tokens(item["scene"].get("says", ""))
+        total_scenes += 1
+        # where the voice really says this scene's words (ignoring the one changed word)
+        hits = [tm for k, (tm, w) in enumerate(words) if [x for _, x in words[k:k + 6]][1:6] == says[1:6]]
+        if item["start"] == 0 and hits and hits[0] < 1:
+            matched += 1
+            continue
+        if hits:
+            matched += 1
+            worst_off = max(worst_off, min(abs(h - item["start"]) for h in hits))
+check(total_scenes and matched == total_scenes, f"every scene was found in the voice ({matched}/{total_scenes})")
+check(worst_off < 0.5, f"scene footage starts when the voice says it (worst {worst_off:.2f}s off)")
+scene_counts = [len(r["timeline"]["timeline"]) for r in soak]
+check(all(c >= 7 for c in scene_counts), f"scenes are kept, not merged away ({min(scene_counts, default=0)}-{max(scene_counts, default=0)} per video)")
+stamps_ok = True
+for d in datas:
+    block = d["description"].split("⏱️ TIMESTAMPS\n")[1].split("\n\n")[0] if "⏱️ TIMESTAMPS" in d["description"] else ""
+    secs = [int(m) * 60 + int(s_) for m, s_ in re.findall(r"^(\d+):(\d{2}) - ", block, re.M)]
+    stamps_ok &= bool(secs) and secs[0] == 0 and len(secs) >= 3 and all(b - a >= 10 for a, b in zip(secs, secs[1:]))
+check(stamps_ok, "description chapters use the real voice times (start 0:00, 3+, 10s apart)")
+labels_t = [l[0] for r in soak[:1] for l in _scene_labels_from_plan(None, r["timeline"]["dur"], r["timeline"]["timeline"])]
+check(labels_t and all(abs(a - (b["start"] + 0.3)) < 0.01 for a, b in zip(labels_t, soak[0]["timeline"]["timeline"])),
+      "on-screen labels appear when the voice reaches their scene")
+
+from brain.trend_engine import get_random_elements  # noqa: E402
+fb = advanced_script_gen._fallback(get_random_elements("Testnet Farming Basics"), U.format_details(U.FORMATS[0]))
+fb_tokens = scene_sync._tokens(fb["script"])
+found = [scene_sync._find_phrase(fb_tokens, s["says"], 0) for s in fb["scenes"]]
+check(all(f is not None for f in found) and found == sorted(found), "fallback script scenes are anchored to its narration")
+
+check(PEXELS_PAGES and PEXELS_PAGES[0] == 1 and max(PEXELS_PAGES) <= 4, f"Pexels paging starts at page 1 and stops by page 4 (max {max(PEXELS_PAGES)})")
 labels = [t for d in datas for _, _, t, _ in _scene_labels_from_plan(d["scenes"], 300)]
 check(not any(t in {"LARGE KEYWORD HIGHLIGHT", "STEP LABEL", "RISK WARNING", "ACTION CHECKLIST"} for t in labels),
       "on-screen labels come from the script, not studio placeholders")
@@ -426,6 +570,32 @@ windows, seg = plan_clip_windows([f"clip{i}.mp4" for i in range(25)], 300, 6)
 check(len(windows) == len(set(windows)) and len(windows) * (seg - 0.5) >= 301,
       f"5-min video from 25 clips: {len(windows)} segments of {seg}s, none repeated")
 
+# Production-sized scene plan: 10 scenes over 5 minutes, ~3 clips of 15s per scene
+tl = [{"start": 30.0 * k, "end": 30.0 * (k + 1), "scene": {}} for k in range(10)]
+sc = {k: [f"s{k}c{j}.mp4" for j in range(3)] for k in range(10)}
+durs = {c: 15.0 for cs in sc.values() for c in cs}
+plan, repeats = _orig_plan(tl, sc, durs)
+check(repeats == 0, f"5-min scene plan: {len(plan)} segments, no footage repeated")
+check(all(p in sc[int(at // 30)] for p, _, at, _ in plan), "5-min scene plan: each scene uses only its own clips")
+spans = {}
+for p, st, _, ln in plan:
+    spans.setdefault(p, []).append((st, st + ln))
+check(all(b[0] >= a[1] - 1e-6 for v in spans.values() for a, b in zip(sorted(v), sorted(v)[1:])), "5-min scene plan: no two pieces of one clip overlap")
+check(all(a[0] != b[0] for a, b in zip(plan, plan[1:])), "5-min scene plan: same clip never plays twice in a row")
+sc_short = dict(sc)
+sc_short[4] = []  # a scene whose search found nothing borrows unused footage instead of repeating
+plan, repeats = _orig_plan(tl, sc_short, durs)
+check(repeats == 0, "a scene with no clips borrows unused footage, nothing repeats")
+
+print("\n=== 3b. Thumbnail text always fits, nothing is cut")
+from PIL import ImageDraw  # noqa: E402
+draw = ImageDraw.Draw(Image.new("RGB", (1280, 720)))
+texts = [d["thumbnail_text"] for d in datas] + ["WHY 90% OF AIRDROP WALLETS GET DISQUALIFIED BEFORE SNAPSHOT", "GAS"]
+cut = [t for t in texts if " ".join(_fit_title(draw, t, 676, 370)[2]).split() != t.split()]
+check(not cut, f"all {len(texts)} thumbnail texts fit in 3 lines without dropping words {cut[:1]}")
+sizes = [_fit_title(draw, d["thumbnail_text"], 676, 370)[1] for d in datas]
+check(min(sizes) >= 70, f"short thumbnail texts are big (smallest font {min(sizes)}px)")
+
 print("\n=== 4. Duplicate protection")
 LLM["mode"] = "copycat"
 before = len(API["inserts"])
@@ -438,6 +608,14 @@ r1 = run_one("groq down #1")
 check(r1["success"], "with the AI down, the honest fallback script is used once")
 r2 = run_one("groq down #2")
 check(not r2["success"] and "Uniqueness gate" in (r2["error"] or ""), "the same fallback is not uploaded a second time")
+
+print("\n=== 4b. Pexels runs out of never-used footage")
+LLM["mode"] = "ok"
+PEXELS_CATALOG = 40  # every search now returns clips that earlier videos already used
+r = run_one("starved", render=False)
+check(r["success"], "the video is still made when no fresh footage is left")
+check(len(r["clips"]) >= 6 and len(r["clips"]) == len(set(r["clips"])),
+      f"it reuses the oldest clips instead of showing none ({len(r['clips'])} clips, none twice in the video)")
 
 print(f"\n{len(FAILS)} failure(s)")
 if not args.keep:

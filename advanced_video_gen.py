@@ -114,8 +114,14 @@ def build_advanced_video(
     scenes: list = None,
     title: str = "",
     film_directives: list = None,
+    timeline: list = None,
+    scene_clips: dict = None,
 ) -> str | None:
-    """Build video with real zoom effects and scene-based editing."""
+    """Build video with real zoom effects and scene-based editing.
+
+    With a timeline (from scene_sync), each scene shows its own clips at the
+    moment the voice talks about it, and no footage repeats.
+    """
     os.makedirs(VIDEOS_DIR, exist_ok=True)
     output_path = os.path.join(VIDEOS_DIR, f"{filename}.mp4")
 
@@ -132,6 +138,36 @@ def build_advanced_video(
         if not clip_paths:
             print("⚠️  No clips — color background")
             bg = ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT), color=(10, 5, 20), duration=total_dur)
+        elif timeline:
+            from scene_sync import plan_scene_segments
+            durations = {p: _clip_duration(p) for p in dict.fromkeys(clip_paths)}
+            plan, _ = plan_scene_segments(timeline, scene_clips or {}, durations)
+            fade = 0.4
+            segments = []
+            for i, (src, start_t, at, length) in enumerate(plan):
+                # Each piece starts exactly on its time and overlaps the next by `fade`
+                show = length + (fade if i < len(plan) - 1 else 0)
+                try:
+                    vc = VideoFileClip(src, audio=False)
+                    vc = _resize_fill(vc, VIDEO_WIDTH, VIDEO_HEIGHT)
+                    if vc.duration >= start_t + show:
+                        vc = vc.subclip(start_t, start_t + show)
+                    else:
+                        vc = vc.loop(duration=show)
+                    vc = vc.set_fps(FPS)
+                    directive = film_directives[i % len(film_directives)] if film_directives else {}
+                    zoom_hint = directive.get("zoom", "")
+                    zoom = "out" if "out" in zoom_hint else "in" if ("push" in zoom_hint or "in" in zoom_hint) else zoom_types[i % len(zoom_types)]
+                    vc = _apply_real_zoom(vc, zoom)
+                except Exception as e:
+                    print(f"⚠️  Clip {i}: {e}")
+                    vc = ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT), color=(10, 5, 20), duration=show)
+                if i:
+                    vc = vc.crossfadein(fade)
+                segments.append(vc.set_start(at))
+            base = ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT), color=(10, 5, 20), duration=total_dur)
+            bg = CompositeVideoClip([base] + segments, size=(VIDEO_WIDTH, VIDEO_HEIGHT)).set_duration(total_dur)
+
         else:
             segments = []
             # Every segment is a different, non-overlapping piece of footage
@@ -190,7 +226,7 @@ def build_advanced_video(
                 layers.append(t)
 
         # 2. Scene labels at key moments
-        scene_labels = _scene_labels_from_plan(scenes, total_dur) or [
+        scene_labels = _scene_labels_from_plan(scenes, total_dur, timeline) or [
             (total_dur * 0.12, 3.5, "WHAT ARE CRYPTO AIRDROPS?", "yellow"),
             (total_dur * 0.28, 3.5, "STEP BY STEP GUIDE", "white"),
             (total_dur * 0.45, 3.5, "PRO TIPS", "cyan"),
@@ -316,7 +352,13 @@ def plan_clip_windows(clip_paths, total_dur, seg_duration=6, max_seg=12):
     return windows[:needed], seg
 
 
-def _scene_labels_from_plan(scenes, total_dur):
+def _scene_labels_from_plan(scenes, total_dur, timeline=None):
+    if timeline:
+        # Labels appear when the voice reaches that scene
+        scenes = [item["scene"] for item in timeline]
+        starts = [item["start"] for item in timeline]
+    else:
+        starts = None
     if not scenes:
         return []
     colors = {
@@ -331,9 +373,11 @@ def _scene_labels_from_plan(scenes, total_dur):
     labels = []
     count = len(scenes)
     for idx, scene in enumerate(scenes):
-        start = min(total_dur - 4, total_dur * (idx / max(1, count)))
+        start = starts[idx] + 0.3 if starts else min(total_dur - 4, total_dur * (idx / max(1, count)))
         # text_overlay is written for this video; "subtitle" is only a style hint
         # from the studio brief (e.g. "step label") and must not appear on screen
+        if starts and not (scene.get("text_overlay") or scene.get("scene")):
+            continue
         text = scene.get("text_overlay") or scene.get("scene") or "NEXT STEP"
         color = colors.get(scene.get("viewer_state"), "white")
         labels.append((max(0, start), 3.5, str(text).upper()[:42], color))

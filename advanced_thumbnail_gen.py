@@ -141,75 +141,98 @@ def _remove_background(input_path, output_path):
     return os.path.exists(output_path)
 
 
-def _add_reaction_face(img, palette, seed_val):
-    """Add a large, dynamic 'shocked reaction' face cutout (real background removal, viral thumbnail style)."""
+REACTION_QUERIES = [
+    "shocked man face", "shocked woman face", "surprised man mouth open",
+    "surprised woman mouth open", "man hands on head shocked", "woman covering mouth surprised",
+    "stunned man looking at phone", "shocked woman looking at phone", "shocked man looking at laptop",
+    "surprised woman looking at laptop", "man in disbelief", "woman in disbelief",
+    "shocked businessman", "shocked young woman", "amazed man wide eyes",
+    "amazed woman wide eyes", "surprised student", "shocked senior man",
+    "shocked teenager face", "scared surprised face", "man shouting wow",
+    "woman gasping surprised", "worried shocked man", "confused shocked woman",
+]
+
+
+def _face_card(photo_path, palette, height):
+    """The photo cropped around the face (upper middle) as a tilted card with a glowing border."""
+    photo = Image.open(photo_path).convert("RGB")
+    w, h = photo.size
+    side = min(w, int(h * 0.8))
+    top = int(max(0, min(h - side, h * 0.06)))  # portraits: the face sits in the upper part
+    left = (w - side) // 2
+    face = photo.crop((left, top, left + side, top + side)).resize((height, height))
+    face = ImageEnhance.Contrast(face).enhance(1.2)
+    face = ImageEnhance.Color(face).enhance(1.25)
+    face = ImageEnhance.Sharpness(face).enhance(1.3)
+    border = 12
+    card = Image.new("RGBA", (height + 2 * border, height + 2 * border), palette["secondary"] + (255,))
+    mask = Image.new("L", (height, height), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, height, height], radius=height // 10, fill=255)
+    card.paste(face, (border, border), mask)
+    outer = Image.new("L", card.size, 0)
+    ImageDraw.Draw(outer).rounded_rectangle([0, 0, card.width, card.height], radius=height // 10 + border, fill=255)
+    card.putalpha(outer)
+    return card.rotate(random.uniform(-5, 5), expand=True, resample=Image.BICUBIC)
+
+
+def _add_reaction_face(img, palette, seed_val=None):
+    """Add a large shocked reaction face on the right, never the same photo twice.
+
+    With rembg installed the person is cut out (viral thumbnail style);
+    otherwise the face is shown as a framed card. Returns (img, added).
+    """
     try:
-        random.seed(seed_val)
-        reaction_queries = [
-            "shocked surprised man face reaction",
-            "shocked surprised woman face reaction",
-            "amazed excited person reaction face",
-            "surprised person mouth open reaction",
-            "excited shocked face expression",
-            "man hands on head shocked",
-            "woman covering mouth surprised",
-            "wow expression young man",
-            "stunned person looking at phone",
-            "excited woman looking at laptop",
-            "shocked businessman reaction",
-            "surprised student looking at screen",
-            "man amazed holding phone",
-            "woman excited celebrating success",
-            "disbelief face closeup",
-            "happy surprised man pointing",
-        ]
-        query = random.choice(reaction_queries)
-        photo_path = _fetch_pexels_photo(query, cache_dir="output/thumbnails/_reaction_cache")
+        from brain.uniqueness import pick_fresh, remember
+        query = pick_fresh("reaction_query", REACTION_QUERIES)
+        photo_path = _fetch_pexels_photo(query, cache_dir="output/thumbnails/_reaction_cache", kind="reaction_photo")
         if not photo_path:
-            return img
+            return img, False
+        remember("reaction_query", query)
 
         cutout_path = photo_path.replace(".jpg", "_cutout.png")
-        if not os.path.exists(cutout_path):
-            if not os.path.exists(REMBG_PYTHON) or not _remove_background(os.path.abspath(photo_path), os.path.abspath(cutout_path)):
-                return img
-
-        face = Image.open(cutout_path).convert("RGBA")
-        fw, fh = face.size
-        target_h = int(THUMB_H * 0.95)
-        target_w = int(fw * (target_h / fh))
-        face = face.resize((target_w, target_h))
-        face = ImageEnhance.Contrast(face).enhance(1.15)
-        face = ImageEnhance.Color(face).enhance(1.2)
-
-        # Always right side for consistent layout (text always has left half free)
-        pos_x = THUMB_W - target_w - 10
-        pos_y = THUMB_H - target_h
-
-        # Soft drop shadow behind the cutout for depth
-        shadow = Image.new("RGBA", face.size, (0, 0, 0, 0))
-        alpha = face.split()[3]
-        shadow.paste((0, 0, 0, 120), (0, 0), alpha)
-        shadow = shadow.filter(ImageFilter.GaussianBlur(12))
-
+        has_cutout = os.path.exists(cutout_path) or (
+            os.path.exists(REMBG_PYTHON) and _remove_background(os.path.abspath(photo_path), os.path.abspath(cutout_path)))
         img_rgba = img.convert("RGBA")
+        if has_cutout:
+            face = Image.open(cutout_path).convert("RGBA")
+            fw, fh = face.size
+            target_h = int(THUMB_H * 0.95)
+            target_w = int(fw * (target_h / fh))
+            face = face.resize((target_w, target_h))
+            face = ImageEnhance.Contrast(face).enhance(1.15)
+            face = ImageEnhance.Color(face).enhance(1.2)
+            # Always right side (the text owns the left half)
+            pos_x = THUMB_W - target_w - 10
+            pos_y = THUMB_H - target_h
+        else:
+            face = _face_card(photo_path, palette, int(THUMB_H * 0.62))
+            pos_x = THUMB_W - face.width - 25
+            pos_y = max(60, (THUMB_H - 70 - face.height) // 2 + 15)
+
+        # Soft drop shadow behind the face for depth
+        shadow = Image.new("RGBA", face.size, (0, 0, 0, 0))
+        shadow.paste((0, 0, 0, 140), (0, 0), face.split()[3])
+        shadow = shadow.filter(ImageFilter.GaussianBlur(12))
         img_rgba.paste(shadow, (pos_x + 8, pos_y + 10), shadow)
         img_rgba.paste(face, (pos_x, pos_y), face)
-        return img_rgba.convert("RGB")
+        print(f"   Reaction face: '{query}' ({'cutout' if has_cutout else 'card'})")
+        return img_rgba.convert("RGB"), True
     except Exception as e:
         print(f"Reaction face add failed: {e}")
-        return img
+        return img, False
 
 
-def _add_avatar_to_thumbnail(img, palette, layout, gender="female"):
-    """Paste a circular-cropped avatar with a dynamic multi-layer glow border, slight tilt, and grain."""
+def _add_avatar_to_thumbnail(img, palette, layout, gender="female", size=None):
+    """Paste a circular-cropped avatar with a dynamic multi-layer glow border, slight tilt, and grain.
+    Returns (img, added)."""
     try:
         avatar_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatar")
         face_file = "host_face_male.jpg" if gender == "male" else "host_face_female.jpg"
         face_path = os.path.join(avatar_dir, face_file)
         if not os.path.exists(face_path):
-            return img
+            return img, False
 
-        size = random.randint(130, 150)
+        size = size or random.randint(130, 150)
         avatar = Image.open(face_path).convert("RGB").resize((size, size))
         avatar = ImageEnhance.Contrast(avatar).enhance(1.15)
         avatar = ImageEnhance.Color(avatar).enhance(1.1)
@@ -234,9 +257,9 @@ def _add_avatar_to_thumbnail(img, palette, layout, gender="female"):
         angle = random.uniform(-6, 6)
         ring = ring.rotate(angle, expand=True, resample=Image.BICUBIC)
 
-        # Random corner (bottom side only, avoids title & badge collisions)
-        pos_x = THUMB_W - ring.width - 20
-        pos_y = THUMB_H - 70 - ring.height - 15
+        # Right side, above the bottom bar (the title stays on the left)
+        pos_x = THUMB_W - ring.width - 30
+        pos_y = max(70, (THUMB_H - 70 - ring.height) // 2 + 20)
 
         img_rgba = img.convert("RGBA")
         img_rgba.paste(ring, (pos_x, pos_y), ring)
@@ -253,10 +276,10 @@ def _add_avatar_to_thumbnail(img, palette, layout, gender="female"):
         noise_rgb = Image.merge("RGB", (noise, noise, noise))
         img = Image.blend(img, noise_rgb, 0.03)
 
-        return img
+        return img, True
     except Exception as e:
         print(f"Avatar thumbnail add failed: {e}")
-        return img
+        return img, False
 
 
 def _draw_coin(draw, cx, cy, r, palette, symbol="$"):
@@ -315,11 +338,17 @@ def _remember_photo(pid):
         pass
 
 
-def _fetch_pexels_photo(query, cache_dir="output/thumbnails/_prop_cache"):
-    """Fetch a real stock photo from Pexels (photos API, not videos) and cache it."""
+def _fetch_pexels_photo(query, cache_dir="output/thumbnails/_prop_cache", kind=None):
+    """Fetch a real stock photo from Pexels (photos API, not videos) and cache it.
+
+    kind: when given (e.g. "reaction_photo"), a photo used in any past thumbnail
+    is never picked again; the id is kept in the uniqueness memory.
+    """
     import requests, hashlib
     from config import PEXELS_API_KEY
     os.makedirs(cache_dir, exist_ok=True)
+    if kind:
+        return _fetch_fresh_photo(query, cache_dir, kind)
     # Add random salt so each run fetches a fresh unique photo
     salt = str(random.randint(1, 999))
     cache_key = hashlib.md5((query + salt).encode()).hexdigest()[:10]
@@ -351,6 +380,36 @@ def _fetch_pexels_photo(query, cache_dir="output/thumbnails/_prop_cache"):
     except Exception as e:
         print(f"Pexels photo fetch failed: {e}")
         return None
+
+
+def _fetch_fresh_photo(query, cache_dir, kind):
+    """A photo for `query` whose id was never used under `kind`. Looks through up to 4 result pages."""
+    import requests
+    from config import PEXELS_API_KEY
+    from brain.uniqueness import seen, remember
+    used = {str(x) for x in seen(kind)} | {str(x) for x in _load_used_photos()}
+    headers = {"Authorization": PEXELS_API_KEY}
+    try:
+        for page in range(1, 5):
+            r = requests.get("https://api.pexels.com/v1/search", headers=headers,
+                             params={"query": query, "per_page": 40, "page": page, "orientation": "portrait"}, timeout=15)
+            r.raise_for_status()
+            photos = r.json().get("photos", [])
+            fresh = [ph for ph in photos if str(ph.get("id")) not in used]
+            if fresh:
+                photo = random.choice(fresh[:15])  # the first results match the search best
+                path = os.path.join(cache_dir, f"{kind}_{photo.get('id')}.jpg")
+                with open(path, "wb") as f:
+                    f.write(requests.get(photo["src"]["large"], timeout=15).content)
+                remember(kind, str(photo.get("id")))
+                _remember_photo(photo.get("id"))
+                return path
+            if len(photos) < 40:
+                break
+        print(f"Pexels: no unused photo for '{query}'")
+    except Exception as e:
+        print(f"Pexels photo fetch failed: {e}")
+    return None
 
 
 def _paste_prop_with_shadow(img_rgba, prop_path, x, y, size, rounded=True):
@@ -413,19 +472,20 @@ def _draw_profit_chart(img_rgba, x, y, w, h, palette):
     poly = points + [(points[-1][0], base_y), (points[0][0], base_y)]
     draw.polygon(poly, fill=profit_color + (40,))
 
-    # Profit badge text (e.g. +347%)
-    profit_pct = random.randint(120, 480)
-    badge_font = _get_font(30)
-    badge_text = f"+{profit_pct}%"
-    draw.text((x + w - 12, y + 10), badge_text, font=badge_font, fill=profit_color, anchor="ra")
+    # No percentage label: a made-up profit number is an earnings claim
 
     img_rgba.paste(overlay, (0, 0), overlay)
     return img_rgba
 
 
-def _add_crypto_props(img, palette, layout):
-    """Add REAL stock photo coin(s) and a wallet/cash prop for an authentic, advanced look."""
+def _add_crypto_props(img, palette, layout, top=None):
+    """Add REAL stock photo coin(s) and a wallet/cash prop for an authentic, advanced look.
+    Props sit in one row between `top` and the bottom bar; skipped if there is no room."""
     try:
+        row_bottom = THUMB_H - 70 - 15
+        size = min(130, row_bottom - (top or 0) - 10)
+        if size < 70:
+            return img
         img_rgba = img.convert("RGBA")
 
         coin_query = random.choice(["gold coins bitcoin", "bitcoin coin macro", "gold coin stack"])
@@ -435,9 +495,9 @@ def _add_crypto_props(img, palette, layout):
         wallet_photo = _fetch_pexels_photo(wallet_query)
 
         # All props confined to the LEFT half so the right side stays clear for the reaction face
+        wallet_size = coin_size = size
+        cx, cy = 30, row_bottom - coin_size
         if coin_photo:
-            coin_size = 130
-            cx, cy = 30, 90
             img_rgba = _paste_prop_with_shadow(img_rgba, coin_photo, cx, cy, coin_size, rounded=True)
             ring_overlay = Image.new("RGBA", img_rgba.size, (0, 0, 0, 0))
             rdraw = ImageDraw.Draw(ring_overlay)
@@ -447,14 +507,14 @@ def _add_crypto_props(img, palette, layout):
                               outline=(255, 30, 30, 220), width=w_)
             img_rgba = Image.alpha_composite(img_rgba, ring_overlay)
 
+        wx = (cx + coin_size + 30) if coin_photo else 30
+        wy = row_bottom - wallet_size
         if wallet_photo:
-            wallet_size = 110
-            wx, wy = 30, THUMB_H - 70 - wallet_size - 15
             img_rgba = _paste_prop_with_shadow(img_rgba, wallet_photo, wx, wy, wallet_size, rounded=False)
 
-        chart_w, chart_h = 190, 110
-        chart_x = (wx + wallet_size + 15) if wallet_photo else 30
-        chart_y = THUMB_H - 70 - chart_h - 15
+        chart_w, chart_h = 190, size
+        chart_x = (wx + wallet_size + 20) if wallet_photo else wx
+        chart_y = row_bottom - chart_h
         img_rgba = _draw_profit_chart(img_rgba, chart_x, chart_y, chart_w, chart_h, palette)
         return img_rgba.convert("RGB")
     except Exception as e:
@@ -462,8 +522,114 @@ def _add_crypto_props(img, palette, layout):
         return img
 
 
-def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "output/thumbnails", force_palette: str = None, gender: str = "female") -> str | None:
-    """Generate a professional unique thumbnail."""
+def _fit_title(draw, text, max_w, max_h, max_lines=3):
+    """Largest font where every word fits in max_lines lines inside max_w x max_h. Never drops words."""
+    words = text.split()
+    for size in range(150, 39, -4):
+        font = _get_font(size)
+        lines, cur = [], ""
+        for w in words:
+            trial = f"{cur} {w}".strip()
+            if draw.textlength(trial, font=font) <= max_w:
+                cur = trial
+            else:
+                if cur:
+                    lines.append(cur)
+                cur = w
+        if cur:
+            lines.append(cur)
+        line_h = int(size * 1.12)
+        widest = max(draw.textlength(l, font=font) for l in lines) if lines else 0
+        if len(lines) <= max_lines and line_h * len(lines) <= max_h and widest <= max_w:
+            return font, size, lines, line_h
+    # Too long even at the smallest size: keep the whole words that fit
+    font, size = _get_font(40), 40
+    lines, cur = [], ""
+    for w in words:
+        trial = f"{cur} {w}".strip()
+        if draw.textlength(trial, font=font) <= max_w:
+            cur = trial
+        elif len(lines) + 1 < max_lines:
+            lines.append(cur)
+            cur = w
+        else:
+            break
+    lines.append(cur)
+    return font, size, lines, int(size * 1.12)
+
+
+def _photo_background(path, palette):
+    """Cover-crop a photo to the thumbnail size, keep it visible, tint lightly."""
+    bg = Image.open(path).convert("RGB")
+    bw, bh = bg.size
+    target_ratio = THUMB_W / THUMB_H
+    if bw / bh > target_ratio:
+        new_w, new_h = int(bh * target_ratio), bh
+    else:
+        new_w, new_h = bw, int(bw / target_ratio)
+    left, top = (bw - new_w) // 2, (bh - new_h) // 2
+    bg = bg.crop((left, top, left + new_w, top + new_h)).resize((THUMB_W, THUMB_H))
+    bg = ImageEnhance.Brightness(bg).enhance(0.8)
+    bg = ImageEnhance.Contrast(bg).enhance(1.15)
+    bg = ImageEnhance.Color(bg).enhance(1.25)
+    tint = Image.new("RGB", (THUMB_W, THUMB_H), palette["primary"])
+    return Image.blend(bg, tint, 0.10)
+
+
+def _layout_overlay(layout, palette):
+    """Layout accents as a translucent layer, so the background photo stays visible."""
+    fx = Image.new("RGBA", (THUMB_W, THUMB_H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(fx)
+    p, bgc = palette["primary"], palette["bg"]
+    if layout == "split_left":
+        d.rectangle([0, 0, THUMB_W // 2, THUMB_H], fill=bgc + (110,))
+    elif layout == "split_right":
+        d.rectangle([THUMB_W // 2, 0, THUMB_W, THUMB_H], fill=p + (40,))
+    elif layout == "center_dramatic":
+        for y in range(0, THUMB_H, 4):
+            d.rectangle([0, y, THUMB_W, y + 4], fill=p + (int(70 * y / THUMB_H),))
+    elif layout == "top_heavy":
+        d.rectangle([0, 0, THUMB_W, 90], fill=p + (150,))
+    elif layout == "bottom_banner":
+        d.rectangle([0, THUMB_H - 190, THUMB_W, THUMB_H - 70], fill=bgc + (120,))
+    elif layout == "diagonal_split":
+        d.polygon([(0, 0), (THUMB_W * 2 // 3, 0), (THUMB_W // 3, THUMB_H), (0, THUMB_H)], fill=p + (55,))
+    elif layout == "frame_border":
+        b = 22
+        for box in ([0, 0, THUMB_W, b], [0, THUMB_H - b, THUMB_W, THUMB_H], [0, 0, b, THUMB_H], [THUMB_W - b, 0, THUMB_W, THUMB_H]):
+            d.rectangle(box, fill=p + (255,))
+    elif layout == "spotlight":
+        for r in range(420, 0, -20):
+            a = int(60 * (1 - r / 420))
+            d.ellipse([THUMB_W * 3 // 4 - r, THUMB_H // 2 - r, THUMB_W * 3 // 4 + r, THUMB_H // 2 + r], fill=p + (a,))
+    # Readability: darken behind the title (left side) with a soft gradient
+    for x in range(0, int(THUMB_W * 0.62), 4):
+        a = int(185 * (1 - x / (THUMB_W * 0.62)) ** 0.8)
+        d.rectangle([x, 0, x + 4, THUMB_H], fill=(0, 0, 0, a))
+    return fx
+
+
+def _accent_word(words):
+    """The word to highlight: one with a number, else the longest."""
+    with_digit = [i for i, w in enumerate(words) if any(c.isdigit() for c in w)]
+    if with_digit:
+        return with_digit[0]
+    return max(range(len(words)), key=lambda i: len(words[i])) if words else -1
+
+
+def _readable_on(color):
+    """Black or white, whichever reads better on `color`."""
+    return (0, 0, 0) if sum(color) > 450 else (255, 255, 255)
+
+
+def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "output/thumbnails", force_palette: str = None,
+                                gender: str = "female", bg_image: str = None, bg_query: str = None) -> str | None:
+    """Generate a professional unique thumbnail.
+
+    title: the short thumbnail text (2-5 words work best; longer text is shrunk, never cut).
+    bg_image: a frame from the video itself, so the thumbnail shows what the video shows.
+    bg_query: Pexels photo search used when there is no frame.
+    """
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"{filename}.jpg")
 
@@ -473,7 +639,7 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
     badge = pick_fresh("thumb_badge", BADGE_TEXTS)
 
     try:
-        # ── Base canvas — real blurred background photo for depth ──
+        # ── Background: the video's own frame, else a stock photo ──
         bg_queries = [
             "crypto trading dark background", "stock market neon city",
             "financial technology abstract", "digital money glow",
@@ -484,164 +650,78 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
             "glowing data network", "city skyline night finance",
             "dark abstract particles", "neon circuit board",
         ]
-        bg_query = pick_fresh("thumb_bg_query", bg_queries)
-        bg_photo_path = _fetch_pexels_photo(bg_query, cache_dir="output/thumbnails/_bg_cache")
+        style_query = pick_fresh("thumb_bg_query", bg_queries)
+        from_frame = bool(bg_image and os.path.exists(bg_image))
+        bg_photo_path = bg_image if from_frame else _fetch_pexels_photo(bg_query or style_query, cache_dir="output/thumbnails/_bg_cache")
         if bg_photo_path:
-            bg_photo = Image.open(bg_photo_path).convert("RGB")
-            bw, bh = bg_photo.size
-            target_ratio = THUMB_W / THUMB_H
-            src_ratio = bw / bh
-            if src_ratio > target_ratio:
-                new_h = bh
-                new_w = int(bh * target_ratio)
-            else:
-                new_w = bw
-                new_h = int(bw / target_ratio)
-            left = (bw - new_w) // 2
-            top = (bh - new_h) // 2
-            bg_photo = bg_photo.crop((left, top, left + new_w, top + new_h)).resize((THUMB_W, THUMB_H))
-            bg_photo = bg_photo.filter(ImageFilter.GaussianBlur(6))
-            bg_photo = ImageEnhance.Brightness(bg_photo).enhance(0.45)
-            bg_photo = ImageEnhance.Color(bg_photo).enhance(1.3)
-            # Tint with palette primary color for cohesion
-            tint = Image.new("RGB", (THUMB_W, THUMB_H), palette["primary"])
-            img = Image.blend(bg_photo, tint, 0.12)
+            img = _photo_background(bg_photo_path, palette)
         else:
             img = Image.new("RGB", (THUMB_W, THUMB_H), palette["bg"])
+            _draw_gradient(img, palette["bg"], tuple(c // 3 for c in palette["primary"]))
 
-        # ── Background effect based on layout ─────────────────
-        if layout == "split_left":
-            left = Image.new("RGB", (THUMB_W // 2, THUMB_H), palette["bg"])
-            right = Image.new("RGB", (THUMB_W // 2, THUMB_H), 
-                             tuple(min(255, c + 30) for c in palette["bg"]))
-            _draw_gradient(left, palette["bg"], tuple(c // 3 for c in palette["primary"]))
-            img.paste(left, (0, 0))
-            img.paste(right, (THUMB_W // 2, 0))
-
-        elif layout == "split_right":
-            _draw_gradient(img, palette["bg"], 
-                          tuple(min(255, c + 20) for c in palette["bg"]), "horizontal")
-
-        elif layout == "center_dramatic":
-            _draw_gradient(img, palette["bg"],
-                          tuple(min(255, c // 2) for c in palette["primary"]), "vertical")
-
-        elif layout == "diagonal_split":
-            draw_temp = ImageDraw.Draw(img)
-            points = [(0, 0), (THUMB_W * 2 // 3, 0), (THUMB_W // 3, THUMB_H), (0, THUMB_H)]
-            draw_temp.polygon(points, fill=tuple(c // 4 for c in palette["primary"]))
-
-        elif layout == "spotlight":
-            draw_temp = ImageDraw.Draw(img)
-            _draw_glow_circle(draw_temp, THUMB_W // 2, THUMB_H // 2, 200, palette["primary"], 12)
-
-        elif layout == "frame_border":
-            draw_temp = ImageDraw.Draw(img)
-            border = 25
-            draw_temp.rectangle([0, 0, THUMB_W, border], fill=palette["primary"])
-            draw_temp.rectangle([0, THUMB_H - border, THUMB_W, THUMB_H], fill=palette["primary"])
-            draw_temp.rectangle([0, 0, border, THUMB_H], fill=palette["primary"])
-            draw_temp.rectangle([THUMB_W - border, 0, THUMB_W, THUMB_H], fill=palette["primary"])
-
-        # ── Particle effects (random dots) ────────────────────
+        img = Image.alpha_composite(img.convert("RGBA"), _layout_overlay(layout, palette)).convert("RGB")
         draw = ImageDraw.Draw(img)
-        for _ in range(random.randint(15, 35)):
-            px = random.randint(0, THUMB_W)
-            py = random.randint(0, THUMB_H)
-            pr = random.randint(2, 12)
-            opacity = random.randint(30, 100)
-            color = palette["primary"]
-            draw.ellipse([px - pr, py - pr, px + pr, py + pr],
-                        fill=tuple(max(0, c - 100) for c in color))
 
-        # ── Glow circles in corners ───────────────────────────
-        corner = random.choice([(0, 0), (THUMB_W, 0), (0, THUMB_H), (THUMB_W, THUMB_H)])
-        _draw_glow_circle(draw, corner[0], corner[1], 100, palette["primary"], 6)
+        # ── Subtle particles and a corner glow on the right (the title owns the left) ──
+        for _ in range(random.randint(8, 16)):
+            px = random.randint(THUMB_W // 2, THUMB_W)
+            py = random.randint(0, THUMB_H - 80)
+            pr = random.randint(2, 7)
+            draw.ellipse([px - pr, py - pr, px + pr, py + pr], fill=palette["secondary"])
+        corner = random.choice([(THUMB_W, 0), (THUMB_W, THUMB_H)])
+        glow = Image.new("RGBA", (THUMB_W, THUMB_H), (0, 0, 0, 0))
+        gdraw = ImageDraw.Draw(glow)
+        for r in range(260, 0, -26):
+            gdraw.ellipse([corner[0] - r, corner[1] - r, corner[0] + r, corner[1] + r],
+                          fill=palette["primary"] + (int(50 * (1 - r / 260)),))
+        img = Image.alpha_composite(img.convert("RGBA"), glow).convert("RGB")
 
-        # ── Money/emoji symbols scattered ─────────────────────
-        symbol_font = _get_font(40)
-        symbols = ["$", "₿", "💰", "🚀", "⚡"]
-        for _ in range(random.randint(2, 5)):
-            sx = random.randint(50, THUMB_W - 100)
-            sy = random.randint(50, THUMB_H - 100)
-            draw.text((sx, sy), random.choice(["$", "$", "$"]),
-                     font=symbol_font, fill=palette["primary"])
+        # ── Right side: reaction cutout, else the host avatar ──
+        img, has_face = _add_reaction_face(img, palette)
+        if not has_face:
+            img, has_face = _add_avatar_to_thumbnail(img, palette, layout, gender, size=300)
+        draw = ImageDraw.Draw(img)
 
-        # ── BADGE (top corner) ────────────────────────────────
-        badge_font = _get_font(38)
-        badge_w = len(badge) * 22 + 30
-        bx = random.choice([20, THUMB_W - badge_w - 20])
-        by = 20
-        # Badge background
-        draw.rectangle([bx - 8, by - 5, bx + badge_w, by + 52],
-                      fill=palette["primary"])
-        # Badge glow
-        draw.rectangle([bx - 10, by - 7, bx + badge_w + 2, by + 54],
-                      outline=palette["secondary"], width=2)
-        draw.text((bx, by + 5), badge, font=badge_font, fill=palette["bg"])
+        # ── BADGE (top left, sized to its text) ──
+        badge_font = _get_font(36)
+        bb = draw.textbbox((0, 0), badge, font=badge_font)
+        bw_, bh_ = bb[2] - bb[0] + 32, bb[3] - bb[1] + 22
+        bx, by = 30, 26
+        draw.rectangle([bx - 3, by - 3, bx + bw_ + 3, by + bh_ + 3], fill=palette["secondary"])
+        draw.rectangle([bx, by, bx + bw_, by + bh_], fill=palette["primary"])
+        draw.text((bx + bw_ // 2, by + bh_ // 2), badge, font=badge_font, fill=_readable_on(palette["primary"]), anchor="mm")
 
-        # ── Channel watermark ─────────────────────────────────
+        # ── Channel watermark ──
         wm_font = _get_font(22)
-        wm_x = THUMB_W // 2
-        draw.text((wm_x, 15), "CRYPTO AIRDROP DAILY", font=wm_font,
-                 fill=palette["secondary"], anchor="mt")
+        _draw_text_with_outline(draw, (THUMB_W - 330, 34), "CRYPTO AIRDROP DAILY", wm_font, (255, 255, 255), (0, 0, 0), 2)
 
-        # ── MAIN TITLE ────────────────────────────────────────
-        title_upper = title.upper()
-        lines = _wrap_text(title_upper, max_chars=12)
-
-        # Dynamic font size based on line count
-        sizes = {1: 110, 2: 82, 3: 62}
-        font_size = sizes.get(len(lines), 62)
-        title_font = _get_font(font_size)
-
-        line_height = font_size + 20
-        total_h = len(lines) * line_height
-        start_y = (THUMB_H - total_h) // 2 - 10
-
-        # Adjust x based on layout
-        # Always anchor text to the left half so it never collides with the reaction face on the right
-        text_x = 50
-        panel_pad = 16
-        panel_top = start_y - panel_pad
-        panel_bottom = start_y + total_h + panel_pad
-        panel_right = int(THUMB_W * 0.56)
-        panel_overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-        pdraw = ImageDraw.Draw(panel_overlay)
-        pdraw.rectangle([0, panel_top, panel_right, panel_bottom], fill=(0, 0, 0, 150))
-        img = Image.alpha_composite(img.convert("RGBA"), panel_overlay).convert("RGB")
-        draw = ImageDraw.Draw(img)
-        title_color = (255, 255, 255)
-
+        # ── MAIN TEXT: auto-sized so every word fits, one word highlighted ──
+        text = " ".join(str(title).upper().split())
+        text_x = 40
+        max_w = int(THUMB_W * (0.56 if has_face else 0.88)) - text_x
+        area_top = by + bh_ + 30
+        area_h = THUMB_H - 70 - 30 - area_top - 150  # leave a strip for the props
+        title_font, font_size, lines, line_h = _fit_title(draw, text, max_w, area_h)
+        total_h = line_h * len(lines)
+        start_y = area_top + max(0, (area_h - total_h) // 2)
+        accent = _accent_word(text.split())
+        accent_color = palette["secondary"] if sum(palette["secondary"]) > 250 else (255, 230, 0)
+        word_i = 0
         for i, line in enumerate(lines):
-            y = start_y + i * line_height
+            y = start_y + i * line_h
+            x = text_x
+            for w in line.split():
+                color = accent_color if word_i == accent else (255, 255, 255)
+                _draw_text_with_outline(draw, (x, y), w, title_font, color, (0, 0, 0), max(3, font_size // 22))
+                x += draw.textlength(w + " ", font=title_font)
+                word_i += 1
+        text_bottom = start_y + total_h
 
-            # Draw each line with outline + shadow
-            _draw_text_with_outline(
-                draw, (text_x, y), line, title_font,
-                title_color, (0, 0, 0), 4
-            )
-
-            # Accent line under first word of first line
-            if i == 0:
-                first_word = line.split()[0] if line.split() else line
-                bbox = draw.textbbox((text_x, y), first_word, font=title_font)
-                draw.rectangle(
-                    [text_x, bbox[3] + 3, bbox[2], bbox[3] + 8],
-                    fill=palette["primary"]
-                )
-
-        # ── Crypto props (coins + wallet) ───────────────────
-        # Unique seed per video (based on filename) so each thumbnail's reaction face differs
-        _reaction_seed = hash(filename) % 100000
-        img = _add_reaction_face(img, palette, _reaction_seed)
-
-        img = _add_crypto_props(img, palette, layout)
-
-        # ── Avatar face (host persona) ─────────────────────
+        # ── Crypto props (coins + wallet) in the strip under the text ──
+        img = _add_crypto_props(img, palette, layout, top=text_bottom + 15)
         draw = ImageDraw.Draw(img)
 
-        # ── Bottom accent bar with earnings ──────────────────
+        # ── Bottom accent bar ──
         bar_h = 70
         draw.rectangle([0, THUMB_H - bar_h, THUMB_W, THUMB_H], fill=palette["primary"])
         earn_font = _get_font(32)
@@ -654,21 +734,22 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
         ]
         earn_text = pick_fresh("thumb_bar", earn_texts)
         draw.text((THUMB_W // 2, THUMB_H - bar_h // 2), earn_text,
-                 font=earn_font, fill=palette["bg"], anchor="mm")
+                 font=earn_font, fill=_readable_on(palette["primary"]), anchor="mm")
 
-        # ── Save ──────────────────────────────────────────────
-        # Slight enhancement
-        img = ImageEnhance.Contrast(img).enhance(1.12)
-        img = ImageEnhance.Color(img).enhance(1.1)
+        # ── Save ──
+        img = ImageEnhance.Contrast(img).enhance(1.08)
         img = ImageEnhance.Sharpness(img).enhance(1.2)
 
-        img.save(output_path, "JPEG", quality=96)
+        for quality in (95, 88, 80, 70):
+            img.save(output_path, "JPEG", quality=quality, optimize=True)
+            if os.path.getsize(output_path) < 1_900_000:  # YouTube limit is 2MB
+                break
         # Remember the style so the next thumbnails rotate to unused ones
         remember("thumb_layout", layout)
         remember("thumb_badge", badge)
-        remember("thumb_bg_query", bg_query)
+        remember("thumb_bg_query", style_query)
         remember("thumb_bar", earn_text)
-        print(f"✅ Thumbnail: {palette['name']} | {layout}")
+        print(f"✅ Thumbnail: {palette['name']} | {layout} | {'video frame' if from_frame else 'photo'} bg | {font_size}px text")
         return output_path
 
     except Exception as e:

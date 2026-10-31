@@ -155,7 +155,9 @@ Rules:
 {recent_str}
 - NEVER claim personal earnings, withdrawals, dollar amounts made, "free money", "zero investment", or guaranteed results
 - No fake urgency (no "ends in X days", "last chance", "act now")
-- Max 70 characters, no hashtags, no quotes, at most one ALL-CAPS word
+- Max 70 characters (longer titles get cut in search and suggested videos), no hashtags, no quotes, at most one ALL-CAPS word
+- SEO: put the words people actually type into YouTube search (e.g. "crypto airdrop", "testnet", "airdrop checker",
+  the project or wallet name) in the first 40 characters; put the curiosity part after them
 - Mention {platform} or {wallet} only if it fits the topic
 
 Reply with ONLY the title, nothing else."""
@@ -179,6 +181,9 @@ Reply with ONLY the title, nothing else."""
                 break
             title = resp.json()["choices"][0]["message"]["content"].strip()
             title = title.strip('"').strip("'").strip()
+            if len(title) > 70:
+                print(f"⚠️ AI title too long ({len(title)} chars), retrying: {title}")
+                continue
             if len(title) > 10 and _title_is_fresh(title, past):
                 print(f"✅ AI Title: {title}")
                 return title

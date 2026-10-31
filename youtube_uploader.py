@@ -49,6 +49,56 @@ def _get_authenticated_service():
     return build("youtube", "v3", credentials=creds)
 
 
+def clean_tags(tags, budget=480):
+    """Unique tags that fit YouTube's 500-character limit (a tag with spaces counts its quotes).
+    Too many characters makes the whole upload fail with invalidTags."""
+    out, seen, used = [], set(), 0
+    for t in tags or []:
+        t = " ".join(str(t).replace("<", "").replace(">", "").replace(",", " ").replace("#", "").split())[:60]
+        key = t.lower()
+        cost = len(t) + (2 if " " in t else 0) + (1 if out else 0)
+        if not t or key in seen or used + cost > budget:
+            continue
+        out.append(t)
+        seen.add(key)
+        used += cost
+    return out
+
+
+def add_to_series_playlist(video_id: str, name: str, description: str = "") -> str | None:
+    """Add the video to a public playlist for its series (created once, id remembered).
+    Playlists keep viewers watching the next video and rank in search themselves."""
+    import json
+    from brain.uniqueness import DATA_DIR
+    path = os.path.join(DATA_DIR, "playlists.json")
+    try:
+        known = json.load(open(path)) if os.path.exists(path) else {}
+    except Exception:
+        known = {}
+    try:
+        service = _get_authenticated_service()
+        playlist_id = known.get(name)
+        if not playlist_id:
+            created = service.playlists().insert(part="snippet,status", body={
+                "snippet": {"title": name[:150], "description": description[:5000], "defaultLanguage": VIDEO_LANGUAGE},
+                "status": {"privacyStatus": "public"},
+            }).execute()
+            playlist_id = created["id"]
+            known[name] = playlist_id
+            os.makedirs(DATA_DIR, exist_ok=True)
+            with open(path, "w") as f:
+                json.dump(known, f, indent=1)
+            print(f"✅ Playlist created: {name}")
+        service.playlistItems().insert(part="snippet", body={
+            "snippet": {"playlistId": playlist_id, "resourceId": {"kind": "youtube#video", "videoId": video_id}},
+        }).execute()
+        print(f"✅ Added to playlist: {name}")
+        return playlist_id
+    except Exception as e:
+        print(f"⚠️  Playlist skipped: {e}")
+        return None
+
+
 def upload_video(
     video_path: str,
     title: str,
@@ -77,7 +127,7 @@ def upload_video(
         "snippet": {
             "title": title,
             "description": description,
-            "tags": tags[:500],  # YouTube tag limit
+            "tags": clean_tags(tags),  # YouTube limit: 500 characters in total
             "categoryId": VIDEO_CATEGORY_ID,
             "defaultLanguage": VIDEO_LANGUAGE,
             "defaultAudioLanguage": VIDEO_LANGUAGE,

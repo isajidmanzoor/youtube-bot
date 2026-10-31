@@ -1,4 +1,4 @@
-import os, sys, shutil, uuid, random, glob
+import os, sys, shutil, uuid, random, glob, math
 from datetime import datetime
 
 from advanced_script_gen import generate_advanced_script
@@ -13,10 +13,11 @@ from brain.global_intelligence import (
     evaluate_content_quality,
     update_studio_dashboard,
 )
+from scene_sync import scene_timeline, retime_description
 from music_gen import generate_background_music, mix_audio_with_music
 from shorts_gen import create_short, upload_short
 from video_fetcher import fetch_pexels_videos
-from youtube_uploader import upload_video
+from youtube_uploader import upload_video, add_to_series_playlist
 from logger import logger, log_video
 from config import VIDEOS_DIR, AUDIO_DIR, THUMBS_DIR
 
@@ -98,21 +99,49 @@ def make_complete_video():
             "money growth concept", "blockchain network visualization", "crypto trader desk setup",
             "wallet app interface", "banking technology future",
         ]
-        # Enough footage that no shot repeats inside the video (~1 clip per 12s),
-        # from this video's own scene visuals first, then least-used pool queries
-        total_needed = max(6, int(dur / 12))
-        scene_queries = [s.get("visual") for s in data.get("scenes", []) if s.get("visual")]
-        queries = list(dict.fromkeys([q for q in [data.get("search_query")] + scene_queries if q]))
-        clips, used_queries = [], []
-        for _ in range(12):
-            if len(clips) >= total_needed:
-                break
-            q = queries.pop(0) if queries else pick_fresh("clip_query", query_pool)
-            if q in used_queries:
-                q = pick_fresh("clip_query", [x for x in query_pool if x not in used_queries] or query_pool)
+        # Each scene gets its own footage, searched for what the voice says in it,
+        # and enough of it (~1 clip per 10s) that no shot repeats inside the video
+        timeline = scene_timeline(data["script"], data.get("scenes", []), raw_audio, dur)
+        data["description"] = retime_description(data["description"], timeline)
+        clips, used_queries, scene_clips = [], [], {}
+
+        def _fetch(q, n):
             used_queries.append(q)
             exclude = {os.path.basename(c)[7:-4] for c in clips}
-            clips += fetch_pexels_videos(q, min(5, total_needed - len(clips)), clip_dir, exclude_ids=exclude)
+            got = fetch_pexels_videos(q, n, clip_dir, exclude_ids=exclude, fallback=None)
+            clips.extend(got)
+            return got
+
+        for i, item in enumerate(timeline):
+            scene = item["scene"]
+            need = max(1, math.ceil((item["end"] - item["start"]) / 10))
+            queries = [scene.get("visual"), " ".join(str(scene.get("visual") or "").split()[:2]), data.get("search_query")]
+            got = []
+            for q in dict.fromkeys(x for x in queries if x):
+                if len(got) >= need:
+                    break
+                got += _fetch(q, need - len(got))
+            scene_clips[i] = got
+            logger.info(f"   {item['start']:6.1f}s {str(scene.get('scene') or '?')[:24]:24} | {str(scene.get('visual') or '-')[:30]:30} | {len(got)} clips")
+        total_needed = max(6, int(dur / 10))
+        for _ in range(6):
+            if len(clips) >= total_needed:
+                break
+            q = pick_fresh("clip_query", [x for x in query_pool if x not in used_queries] or query_pool)
+            _fetch(q, min(5, total_needed - len(clips)))
+        # Pexels has run out of never-used footage for these searches: rather than a
+        # video without clips, reuse the clips shown longest ago (still none twice in this video)
+        minimum = max(6, int(dur / 20))
+        for item in timeline:
+            if len(clips) >= minimum:
+                break
+            q = item["scene"].get("visual") or data.get("search_query") or "technology office"
+            used_queries.append(q)
+            exclude = {os.path.basename(c)[7:-4] for c in clips}
+            got = fetch_pexels_videos(q, min(5, minimum - len(clips)), clip_dir, exclude_ids=exclude, fallback=None, allow_reuse=True)
+            clips.extend(got)
+            if got:
+                logger.info(f"   Reused {len(got)} older clips for '{q}' (no fresh footage left)")
         logger.info(f"   {len(clips)} unique clips from {len(used_queries)} searches")
 
         logger.info("🎞️  Step 8/9: Building Video...")
@@ -124,6 +153,8 @@ def make_complete_video():
             data.get("scenes", []),
             title,
             film_directives=data.get("studio_directives", {}).get("sentence_directions", []),
+            timeline=timeline,
+            scene_clips=scene_clips,
         )
         if not video_path: raise RuntimeError("Video build failed")
 
@@ -162,13 +193,32 @@ def make_complete_video():
         logger.info("🖼️  Step 9/9: AI Thumbnail + Upload Brain...")
         os.makedirs(THUMBS_DIR, exist_ok=True)
         # Thumbnail carries the short curiosity text, so it adds to the title instead of repeating it
-        thumb = generate_advanced_thumbnail(data.get("thumbnail_text") or title, run_id, THUMBS_DIR, force_palette=palette, gender=persona_gender)
+        # Background is a frame from the video's own opening footage, so the thumbnail shows what the video shows
+        frame = _thumbnail_frame([c for i in sorted(scene_clips) for c in scene_clips[i]] or clips, os.path.join(THUMBS_DIR, f"{run_id}_frame.jpg"))
+        thumb = generate_advanced_thumbnail(data.get("thumbnail_text") or title, run_id, THUMBS_DIR, force_palette=palette,
+                                            gender=persona_gender, bg_image=frame, bg_query=data.get("search_query"))
+
+        # Watch next: the newest earlier video, so viewers keep watching the channel
+        try:
+            import json
+            brain_file = os.path.expanduser("~/youtube_bot_data/brain_data.json")
+            prev = [v for v in json.load(open(brain_file)).get("uploaded_videos", []) if v.get("video_id")] if os.path.exists(brain_file) else []
+            if prev and "▶️ WATCH NEXT" not in data["description"]:
+                last = prev[-1]
+                data["description"] = data["description"].replace(
+                    "🛡️ SAFETY", f"▶️ WATCH NEXT\n{last.get('title', 'Previous video')}\nhttps://youtu.be/{last['video_id']}\n\n🛡️ SAFETY", 1)
+        except Exception as e:
+            logger.info(f"   Watch-next link skipped: {e}")
 
         logger.info("⬆️  Uploading...")
         update_studio_dashboard("uploading")
         video_id = upload_video(video_path, title, data["description"], data["tags"], thumb)
         if video_id:
             _pin_comment(video_id, data.get("comment",""))
+            series = (data.get("format") or {}).get("name")
+            if series:
+                add_to_series_playlist(video_id, f"Crypto Airdrops: {series.split(' (')[0]}",
+                                       f"{series}. Honest, practical crypto airdrop guides. Educational only, not financial advice.")
             record_video(title, topic, video_id, title[:30], palette)
             record_video_memory(data, extra={
                 "clip_id": [os.path.basename(c)[7:-4] for c in clips if os.path.basename(c).startswith("pexels_")],
@@ -180,9 +230,11 @@ def make_complete_video():
             log_video(title, topic, video_id, video_path, status="uploaded")
             logger.info(f"✅ https://youtube.com/watch?v={video_id} ({dur/60:.1f}min | {mood})")
             try:
-                sp = create_short(clips[:5], audio_path, title, run_id, hook=data.get("thumbnail_text"))
+                # Footage from the opening scenes, enough that the 58s short repeats nothing
+                sp = create_short(clips[:12], audio_path, title, run_id, hook=data.get("thumbnail_text"))
                 if sp:
-                    sid = upload_short(sp, title, data["description"], data["tags"])
+                    sid = upload_short(sp, title, data["description"], data["tags"],
+                                       main_video_id=video_id, hook=data.get("thumbnail_text"))
                     if sid: result["short_id"] = sid; logger.info(f"📱 https://youtube.com/shorts/{sid}")
             except Exception as se: logger.warning(f"⚠️ Short: {se}")
             try:
@@ -210,6 +262,19 @@ def make_complete_video():
             try: os.remove(f)
             except: pass
     return result
+
+def _thumbnail_frame(clip_paths, out_path):
+    """Save a sharp frame (from 40% into the first usable clip) for the thumbnail background."""
+    for path in clip_paths[:3]:
+        try:
+            from moviepy.editor import VideoFileClip
+            vc = VideoFileClip(path, audio=False)
+            vc.save_frame(out_path, t=vc.duration * 0.4)
+            vc.close()
+            return out_path
+        except Exception as e:
+            logger.info(f"   Thumbnail frame skipped ({os.path.basename(path)}): {e}")
+    return None
 
 def _pin_comment(video_id, comment_text):
     try:

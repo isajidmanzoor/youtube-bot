@@ -9,60 +9,72 @@ import random
 from config import PEXELS_API_KEY
 
 
-def fetch_pexels_videos(search_query: str, num_clips: int = 5, output_dir: str = "output/videos/clips", exclude_ids: set = None) -> list[str]:
+def fetch_pexels_videos(search_query: str, num_clips: int = 5, output_dir: str = "output/videos/clips", exclude_ids: set = None,
+                        fallback: str | None = "technology office", allow_reuse: bool = False) -> list[str]:
     """
     Pexels API se stock video clips download karo.
     Clips used in any past video (or in exclude_ids) are skipped.
     Files are named pexels_<id>.mp4 so ids can be remembered after upload.
+    fallback: search used once if this query has no fresh clips (None = no fallback).
+    allow_reuse: when the search has run out of fresh clips, take the ones used
+    longest ago (never ones already in this video) instead of returning nothing.
     Returns: list of downloaded file paths
     """
     os.makedirs(output_dir, exist_ok=True)
     downloaded = []
     try:
         from brain.uniqueness import seen
-        used_ids = {str(x) for x in seen("clip_id")}
+        history = [str(x) for x in seen("clip_id")]  # oldest first
     except Exception:
-        used_ids = set()
-    used_ids |= {str(x) for x in (exclude_ids or set())}
+        history = []
+    this_video = {str(x) for x in (exclude_ids or set())}
+    used_ids = set(history) | this_video
 
     headers = {"Authorization": PEXELS_API_KEY}
 
     try:
         params = {
             "query": search_query,
-            "per_page": min(num_clips * 3, 40),  # extra fetch: some fail, some were used before
+            "per_page": min(max(num_clips * 3, 15), 40),  # extra: some fail, some were used before
             "orientation": "landscape",
             "size": "medium",
-            "page": random.randint(1, 10),
+            "page": 1,
         }
 
-        response = requests.get(
-            "https://api.pexels.com/videos/search",
-            headers=headers,
-            params=params,
-            timeout=30,
-        )
-        response.raise_for_status()
-        data = response.json()
-
-        videos = data.get("videos", [])
-        if not videos:
-            print(f"⚠️  Pexels: No results for '{search_query}', trying fallback...")
-            return fetch_pexels_videos("technology office", num_clips, output_dir, exclude_ids)
-
-        # Clips from past videos are skipped, so look at more pages when this one is mostly used
-        tried = {params["page"]}
-        while sum(1 for v in videos if str(v.get("id")) not in used_ids) < num_clips and len(tried) < 4:
-            params["page"] = random.choice([p for p in range(1, 21) if p not in tried])
-            tried.add(params["page"])
-            more = requests.get(
+        # Clips from past videos are skipped, so walk through result pages until
+        # there are enough fresh ones. Page 1 first: a random deep page is often
+        # empty for specific searches, which used to drop every video onto the
+        # same generic fallback footage.
+        videos, total = [], None
+        while params["page"] <= 4:
+            response = requests.get(
                 "https://api.pexels.com/videos/search",
                 headers=headers,
                 params=params,
                 timeout=30,
             )
-            if more.status_code == 200:
-                videos += more.json().get("videos", [])
+            response.raise_for_status()
+            data = response.json()
+            page_videos = data.get("videos", [])
+            videos += page_videos
+            total = data.get("total_results", total)
+            fresh = sum(1 for v in videos if str(v.get("id")) not in used_ids)
+            if fresh >= num_clips or not page_videos or (total is not None and params["page"] * params["per_page"] >= total):
+                break
+            params["page"] += 1
+
+        if allow_reuse:
+            # Fresh clips first, then the ones used longest ago
+            age = {vid: k for k, vid in enumerate(history)}
+            videos = [v for v in videos if str(v.get("id")) not in this_video]
+            videos.sort(key=lambda v: age.get(str(v.get("id")), -1))
+            used_ids = set(this_video)
+        if not any(str(v.get("id")) not in used_ids for v in videos):
+            if fallback:
+                print(f"⚠️  Pexels: No fresh results for '{search_query}', trying '{fallback}'...")
+                return fetch_pexels_videos(fallback, num_clips, output_dir, exclude_ids, fallback=None)
+            print(f"⚠️  Pexels: No fresh results for '{search_query}'")
+            return []
 
         for i, video in enumerate(videos):
             vid_id = str(video.get("id", f"x{i}"))

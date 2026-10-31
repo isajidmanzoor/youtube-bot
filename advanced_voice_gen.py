@@ -76,8 +76,30 @@ def generate_advanced_voiceover(script: str, filename: str, voice_profile: dict 
             import asyncio
             import edge_tts
             async def _edge_generate():
-                communicate = edge_tts.Communicate(clean_for_say, voice_name, rate=rate, pitch=pitch)
-                await communicate.save(output_path)
+                import inspect, json
+                kwargs = {"rate": rate, "pitch": pitch}
+                if "boundary" in inspect.signature(edge_tts.Communicate).parameters:
+                    kwargs["boundary"] = "WordBoundary"
+                communicate = edge_tts.Communicate(clean_for_say, voice_name, **kwargs)
+                if not hasattr(communicate, "stream"):
+                    await communicate.save(output_path)
+                    return
+                # Keep word timings so the video can show what is being said
+                words = []
+                with open(output_path, "wb") as audio_file:
+                    async for chunk in communicate.stream():
+                        if chunk["type"] == "audio":
+                            audio_file.write(chunk["data"])
+                        elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
+                            start = chunk["offset"] / 1e7
+                            parts = str(chunk.get("text", "")).split() or [""]
+                            step = chunk.get("duration", 0) / 1e7 / len(parts)
+                            words += [[round(start + k * step, 3), w] for k, w in enumerate(parts)]
+                if words:
+                    with open(output_path + ".words.json", "w") as f:
+                        json.dump(words, f)
+            if os.path.exists(output_path + ".words.json"):
+                os.remove(output_path + ".words.json")
             asyncio.run(_edge_generate())
             if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
                 size_kb = os.path.getsize(output_path) / 1024

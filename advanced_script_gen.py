@@ -120,14 +120,17 @@ Return ONLY this exact JSON format:
   "thumbnail_text": "2-4 punchy words, different from the title, no dollar amounts",
   "script": "FULL SCRIPT HERE - 750-850 words",
   "scenes": [
-    {{"time": "0:00", "scene": "section name", "visual": "2-4 word stock footage search", "text_overlay": "max 6 words, written for THIS video"}}
+    {{"time": "0:00", "scene": "section name", "says": "the first 6-10 words of the script where this scene starts, copied exactly", "visual": "2-4 word stock footage search that SHOWS what is said in this scene", "text_overlay": "max 6 words, written for THIS video"}}
   ],
-  "description_intro": "2 sentences that make someone want to watch, honest and specific to this video",
-  "tags": ["10 specific tags"],
+  "description_intro": "2 sentences; the first one contains the main phrase people search for this topic (it is shown in search results), both honest and specific to this video",
+  "tags": ["12 tags: the exact search phrases a viewer would type for this video, from specific (project, wallet, task) to broad (crypto airdrop)"],
   "search_query": "2-4 word stock footage search for the main visual",
   "comment_question": "one specific question to ask viewers in the comments"
 }}
-Give 8-10 scenes: one or two per section, in order, with times spread across 0:00-5:00."""
+Give 8-10 scenes: one or two per section, in order, with times spread across 0:00-5:00.
+SCENES MUST MATCH THE VOICE: each "says" is copied word for word from the script, in script order,
+and each "visual" is a concrete thing a camera can film at that moment (e.g. "hardware wallet closeup",
+"person reading phone warning", "calendar marking date"), never an abstract idea, and never the same visual twice."""
 
 
 def _call_model(prompt: str, temperature: float = 0.92):
@@ -287,16 +290,17 @@ So, back to the question from the start. What decides the outcome is not luck or
 
 {e['outro']}"""
 
+    # "says" anchors each scene to the narration, so its footage appears when it is spoken
     base_scenes = [
-        {"time": "0:00", "scene": "Hook", "visual": "crypto safety opener", "text_overlay": "VERIFY FIRST"},
-        {"time": "0:30", "scene": "WhyNow", "visual": "verification checklist", "text_overlay": "CHECK LINKS"},
-        {"time": "1:00", "scene": "Education", "visual": "airdrop diagram", "text_overlay": "HOW IT WORKS"},
-        {"time": "1:45", "scene": "Tutorial", "visual": "wallet setup", "text_overlay": "STEP 1"},
-        {"time": "2:30", "scene": "Tutorial2", "visual": "platform walkthrough", "text_overlay": "STEP 2"},
-        {"time": "3:00", "scene": "ProTips", "visual": "eligibility checklist", "text_overlay": "PRO TIP"},
-        {"time": "3:45", "scene": "Mistakes", "visual": "warning sign", "text_overlay": "AVOID SCAMS"},
-        {"time": "4:15", "scene": "RealityCheck", "visual": "risk check", "text_overlay": "REALITY CHECK"},
-        {"time": "4:45", "scene": "CTA", "visual": "safe next step", "text_overlay": "LINK IN DESCRIPTION"},
+        {"time": "0:00", "scene": "Hook", "says": question, "visual": "person thinking at laptop", "text_overlay": "VERIFY FIRST"},
+        {"time": "0:30", "scene": "WhyNow", "says": "Today we are diving deep into", "visual": "person reading phone", "text_overlay": "CHECK LINKS"},
+        {"time": "1:00", "scene": "Education", "says": "First let me explain what crypto airdrops actually are", "visual": "crypto coins closeup", "text_overlay": "HOW IT WORKS"},
+        {"time": "1:45", "scene": "Tutorial", "says": "Now let me show you how to approach airdrops", "visual": "smartphone wallet app", "text_overlay": "STEP 1"},
+        {"time": "2:30", "scene": "Tutorial2", "says": "Step two is to connect your", "visual": "hands typing laptop", "text_overlay": "STEP 2"},
+        {"time": "3:00", "scene": "ProTips", "says": "The pro tip that most people miss", "visual": "calendar planning notes", "text_overlay": "PRO TIP"},
+        {"time": "3:45", "scene": "Mistakes", "says": "Now let me talk about avoiding scams", "visual": "warning sign screen", "text_overlay": "AVOID SCAMS"},
+        {"time": "4:15", "scene": "RealityCheck", "says": "Here is the reality check", "visual": "person counting receipts", "text_overlay": "REALITY CHECK"},
+        {"time": "4:45", "scene": "CTA", "says": "So, back to the question from the start", "visual": "person nodding at camera", "text_overlay": "LINK IN DESCRIPTION"},
     ]
     # Format sections replace the generic hook/why-now/basics/tips/reality labels,
     # keeping 9 scenes (the quality gate counts scenes)
