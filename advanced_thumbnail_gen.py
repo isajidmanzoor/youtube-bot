@@ -195,15 +195,24 @@ def _add_reaction_face(img, palette, seed_val=None):
         img_rgba = img.convert("RGBA")
         if has_cutout:
             face = Image.open(cutout_path).convert("RGBA")
+            # Where the photo itself cut the person off (head cropped at the top, shoulder
+            # at the side) the cutout has a hard straight edge: push that edge off the canvas
+            sw, sh = face.size
+            box = face.split()[3].point(lambda a: 255 if a > 40 else 0).getbbox() or (0, 0, sw, sh)
+            cut_top, cut_right = box[1] <= 2, box[2] >= sw - 2
+            face = face.crop(box)
             fw, fh = face.size
-            target_h = int(THUMB_H * 0.95)
+            target_h = THUMB_H if cut_top else int(THUMB_H * 0.95)
             target_w = int(fw * (target_h / fh))
+            if target_w > int(THUMB_W * 0.55):
+                target_w = int(THUMB_W * 0.55)
+                target_h = int(fh * (target_w / fw))
             face = face.resize((target_w, target_h))
             face = ImageEnhance.Contrast(face).enhance(1.15)
             face = ImageEnhance.Color(face).enhance(1.2)
             # Always right side (the text owns the left half)
-            pos_x = THUMB_W - target_w - 10
-            pos_y = THUMB_H - target_h
+            pos_x = THUMB_W - target_w + (int(target_w * 0.04) if cut_right else -10)
+            pos_y = -int(target_h * 0.02) if cut_top else THUMB_H - target_h
         else:
             face = _face_card(photo_path, palette, int(THUMB_H * 0.62))
             pos_x = THUMB_W - face.width - 25

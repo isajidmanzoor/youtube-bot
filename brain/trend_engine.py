@@ -159,6 +159,7 @@ Rules:
 - SEO: put the words people actually type into YouTube search (e.g. "crypto airdrop", "testnet", "airdrop checker",
   the project or wallet name) in the first 40 characters; put the curiosity part after them
 - Mention {platform} or {wallet} only if it fits the topic
+- Natural English a viewer would say out loud: do not paste the format's name into it or add bracketed labels like "(Last SHOCKS)"
 
 Reply with ONLY the title, nothing else."""
 
