@@ -10,7 +10,7 @@ def _try_text(text, size, color, duration, pos):
                 .set_position(pos).set_duration(duration))
     except: return None
 
-def create_short(clip_paths, audio_path, title, filename, output_dir="output/shorts"):
+def create_short(clip_paths, audio_path, title, filename, output_dir="output/shorts", hook=None):
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"{filename}_short.mp4")
     SHORT_DUR = 58
@@ -19,9 +19,9 @@ def create_short(clip_paths, audio_path, title, filename, output_dir="output/sho
             bg = ColorClip(size=(SHORTS_W,SHORTS_H), color=(10,5,20), duration=SHORT_DUR)
         else:
             segs = []
-            random.shuffle(clip_paths)
-            for i in range(SHORT_DUR//5+1):
-                src = clip_paths[i % len(clip_paths)]
+            from advanced_video_gen import plan_clip_windows
+            windows, seg = plan_clip_windows(clip_paths, SHORT_DUR, 5)
+            for src, start in windows:
                 try:
                     vc = VideoFileClip(src, audio=False)
                     tw = vc.h * 9 // 16
@@ -29,20 +29,19 @@ def create_short(clip_paths, audio_path, title, filename, output_dir="output/sho
                         xc = (vc.w - tw)//2
                         vc = vc.crop(x1=xc, y1=0, x2=xc+tw, y2=vc.h)
                     vc = vc.resize((SHORTS_W,SHORTS_H))
-                    if vc.duration > 6:
-                        s = random.uniform(0, vc.duration-5.5)
-                        vc = vc.subclip(s, s+5)
+                    if vc.duration >= start + seg:
+                        vc = vc.subclip(start, start + seg)
                     else:
-                        vc = vc.loop(duration=5)
+                        vc = vc.loop(duration=seg)
                     segs.append(vc)
-                except: segs.append(ColorClip(size=(SHORTS_W,SHORTS_H),color=(10,5,20),duration=5))
+                except: segs.append(ColorClip(size=(SHORTS_W,SHORTS_H),color=(10,5,20),duration=seg))
             bg = concatenate_videoclips(segs, method="compose").subclip(0, SHORT_DUR)
         audio = AudioFileClip(audio_path)
         audio_dur = min(audio.duration, SHORT_DUR)
         audio = audio.subclip(0, audio_dur)
         layers = [bg]
         for txt, color, ypos in [
-            ("CRYPTO AIRDROP GUIDE", "yellow", 80),
+            ((hook or "CRYPTO AIRDROP GUIDE").upper()[:40], "yellow", 80),
             (title[:55]+"..." if len(title)>55 else title, "white", SHORTS_H//2-100),
             (random.choice(["👇 Link in Description","Full guide on the channel","Watch the full video"]), "lime", SHORTS_H//2+150),
             ("NEVER SHARE YOUR SEED PHRASE", "white", SHORTS_H-200),

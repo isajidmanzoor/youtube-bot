@@ -134,18 +134,17 @@ def build_advanced_video(
             bg = ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT), color=(10, 5, 20), duration=total_dur)
         else:
             segments = []
-            num_segs = math.ceil(total_dur / seg_duration)
-            random.shuffle(clip_paths)
+            # Every segment is a different, non-overlapping piece of footage
+            windows, seg_duration = plan_clip_windows(clip_paths, total_dur, seg_duration)
+            num_segs = len(windows)
 
             for i in range(num_segs):
-                src = clip_paths[i % len(clip_paths)]
+                src, start_t = windows[i]
                 try:
                     vc = VideoFileClip(src, audio=False)
                     vc = _resize_fill(vc, VIDEO_WIDTH, VIDEO_HEIGHT)
 
-                    # Random start point
-                    if vc.duration > seg_duration + 2:
-                        start_t = random.uniform(0, vc.duration - seg_duration - 1)
+                    if vc.duration >= start_t + seg_duration:
                         vc = vc.subclip(start_t, start_t + seg_duration)
                     else:
                         vc = vc.loop(duration=seg_duration)
@@ -261,6 +260,62 @@ def build_advanced_video(
         return None
 
 
+def _clip_duration(path):
+    try:
+        vc = VideoFileClip(path, audio=False)
+        d = vc.duration or 0
+        vc.close()
+        return d
+    except Exception:
+        return 0
+
+
+def plan_clip_windows(clip_paths, total_dur, seg_duration=6, max_seg=12):
+    """Cut clips into non-overlapping windows so no footage repeats inside a video.
+
+    If there is not enough footage, segments get longer (up to max_seg) before
+    anything is reused. Consecutive segments never come from the same clip.
+    Returns (windows, seg_duration) where windows is a list of (path, start).
+    """
+    durations = {p: _clip_duration(p) for p in dict.fromkeys(clip_paths)}
+    usable = {p: d for p, d in durations.items() if d > 0} or {p: seg_duration for p in durations}
+    padding = 0.5  # concatenate overlap
+    needed_time = total_dur + 1
+
+    def cut(seg):
+        per_clip = {}
+        for p, d in usable.items():
+            n = max(1, int(d // seg))
+            offset = random.uniform(0, max(0, d - n * seg))
+            starts = [offset + k * seg for k in range(n)]
+            random.shuffle(starts)
+            per_clip[p] = starts
+        return per_clip
+
+    def coverage(seg):
+        return sum(max(1, int(d // seg)) for d in usable.values()) * (seg - padding)
+
+    # Shortest segment length that covers the audio; if none does, the one covering the most
+    lengths = [seg_duration + 0.5 * k for k in range(int((max_seg - seg_duration) * 2) + 1)]
+    seg = next((s for s in lengths if coverage(s) >= needed_time), max(lengths, key=coverage))
+    per_clip = cut(seg)
+
+    # Interleave clips so the same clip never plays twice in a row
+    windows, last = [], None
+    pools = {p: list(s) for p, s in per_clip.items()}
+    while any(pools.values()):
+        choices = [p for p, s in pools.items() if s and p != last] or [p for p, s in pools.items() if s]
+        p = max(choices, key=lambda c: (len(pools[c]), random.random()))
+        windows.append((p, pools[p].pop()))
+        last = p
+
+    needed = math.ceil(needed_time / (seg - padding))
+    if len(windows) < needed:
+        print(f"⚠️  Only {len(windows)} unique segments for {needed} needed — some footage repeats")
+        windows = (windows * math.ceil(needed / max(1, len(windows))))[:needed]
+    return windows[:needed], seg
+
+
 def _scene_labels_from_plan(scenes, total_dur):
     if not scenes:
         return []
@@ -277,7 +332,9 @@ def _scene_labels_from_plan(scenes, total_dur):
     count = len(scenes)
     for idx, scene in enumerate(scenes):
         start = min(total_dur - 4, total_dur * (idx / max(1, count)))
-        text = scene.get("subtitle") or scene.get("text_overlay") or scene.get("scene") or "NEXT STEP"
+        # text_overlay is written for this video; "subtitle" is only a style hint
+        # from the studio brief (e.g. "step label") and must not appear on screen
+        text = scene.get("text_overlay") or scene.get("scene") or "NEXT STEP"
         color = colors.get(scene.get("viewer_state"), "white")
         labels.append((max(0, start), 3.5, str(text).upper()[:42], color))
     return labels

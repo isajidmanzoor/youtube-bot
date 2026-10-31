@@ -468,8 +468,9 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
     output_path = os.path.join(output_dir, f"{filename}.jpg")
 
     palette = next((p for p in PALETTES if p["name"] == force_palette), None) or random.choice(PALETTES)
-    layout = random.choice(LAYOUTS)
-    badge = random.choice(BADGE_TEXTS)
+    from brain.uniqueness import pick_fresh, remember
+    layout = pick_fresh("thumb_layout", LAYOUTS)
+    badge = pick_fresh("thumb_badge", BADGE_TEXTS)
 
     try:
         # ── Base canvas — real blurred background photo for depth ──
@@ -483,7 +484,8 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
             "glowing data network", "city skyline night finance",
             "dark abstract particles", "neon circuit board",
         ]
-        bg_photo_path = _fetch_pexels_photo(random.choice(bg_queries), cache_dir="output/thumbnails/_bg_cache")
+        bg_query = pick_fresh("thumb_bg_query", bg_queries)
+        bg_photo_path = _fetch_pexels_photo(bg_query, cache_dir="output/thumbnails/_bg_cache")
         if bg_photo_path:
             bg_photo = Image.open(bg_photo_path).convert("RGB")
             bw, bh = bg_photo.size
@@ -650,7 +652,7 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
             "AVOID THESE MISTAKES",
             "FULL GUIDE + SAFETY CHECKLIST",
         ]
-        earn_text = random.choice(earn_texts)
+        earn_text = pick_fresh("thumb_bar", earn_texts)
         draw.text((THUMB_W // 2, THUMB_H - bar_h // 2), earn_text,
                  font=earn_font, fill=palette["bg"], anchor="mm")
 
@@ -661,6 +663,11 @@ def generate_advanced_thumbnail(title: str, filename: str, output_dir: str = "ou
         img = ImageEnhance.Sharpness(img).enhance(1.2)
 
         img.save(output_path, "JPEG", quality=96)
+        # Remember the style so the next thumbnails rotate to unused ones
+        remember("thumb_layout", layout)
+        remember("thumb_badge", badge)
+        remember("thumb_bg_query", bg_query)
+        remember("thumb_bar", earn_text)
         print(f"✅ Thumbnail: {palette['name']} | {layout}")
         return output_path
 

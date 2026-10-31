@@ -115,35 +115,44 @@ def get_trending_topic():
     return random.choice(TRENDING_TOPICS)
 
 
-def generate_viral_title(topic: str = None, platform: str = None, wallet: str = None):
-    """Generate a unique, click-worthy title that matches the video topic."""
-    import json, os, requests
-
-    # Load recent titles to avoid repeats
-    recent_titles = []
+def _past_titles() -> list:
+    """Every title this channel has published (uniqueness memory + brain history)."""
+    from brain.uniqueness import seen
+    titles = list(seen("title"))
     try:
         brain_file = os.path.expanduser("~/youtube_bot_data/brain_data.json")
         if os.path.exists(brain_file):
             with open(brain_file) as f:
                 data = json.load(f)
-            recent_titles = [v.get("title", "") for v in data.get("uploaded_videos", [])[-20:]]
+            titles += [v.get("title", "") for v in data.get("uploaded_videos", [])]
     except Exception:
         pass
+    return [t for t in dict.fromkeys(titles) if t]
 
-    recent_str = "\n".join(f"- {t}" for t in recent_titles[-10:]) if recent_titles else "None"
+
+def _title_is_fresh(title: str, past: list) -> bool:
+    from brain.uniqueness import text_similarity, TITLE_SIMILARITY_LIMIT
+    return bool(title) and all(text_similarity(title, old) < TITLE_SIMILARITY_LIMIT for old in past)
+
+
+def generate_viral_title(topic: str = None, platform: str = None, wallet: str = None, video_format: dict = None):
+    """Generate a curiosity-driven title that matches the topic and never resembles a past title."""
+    past = _past_titles()
+    recent_str = "\n".join(f"- {t}" for t in past[-30:]) if past else "None"
     topic_hint = topic or random.choice(TRENDING_TOPICS)
     platform = platform or random.choice(PLATFORMS)
     wallet = wallet or random.choice(WALLETS)
+    format_hint = f'\nThe video format is "{video_format["name"]}": {video_format["structure"]}' if video_format else ""
 
     prompt = f"""You are a YouTube title expert for an honest crypto education channel.
 
-Write 1 click-worthy YouTube title for a video about: "{topic_hint}"
+Write 1 YouTube title for a video about: "{topic_hint}"{format_hint}
 
 Rules:
-- The title MUST accurately describe that exact topic (viewers leave fast if the title over-promises, which kills recommendations)
-- Must be clearly different from these recent titles:
+- The title MUST accurately describe that exact topic and format (viewers leave fast if the title over-promises, which kills recommendations)
+- Create a curiosity gap the video really answers: an unexpected contrast, a precise question, a hidden detail, or a surprising mistake
+- Use a different structure and different key words from ALL of these past titles:
 {recent_str}
-- Spark curiosity with a specific benefit, number, mistake, or question
 - NEVER claim personal earnings, withdrawals, dollar amounts made, "free money", "zero investment", or guaranteed results
 - No fake urgency (no "ends in X days", "last chance", "act now")
 - Max 70 characters, no hashtags, no quotes, at most one ALL-CAPS word
@@ -157,55 +166,67 @@ Reply with ONLY the title, nothing else."""
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
         }
-        payload = {
-            "model": GROQ_MODEL, "reasoning_effort": "low",
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 400,
-            "temperature": 0.9
-        }
-        resp = requests.post("https://api.groq.com/openai/v1/chat/completions",
-                           headers=headers, json=payload, timeout=15)
-        if resp.status_code == 200:
+        for attempt in range(3):
+            payload = {
+                "model": GROQ_MODEL, "reasoning_effort": "low",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 400,
+                "temperature": 0.9 + attempt * 0.05
+            }
+            resp = requests.post("https://api.groq.com/openai/v1/chat/completions",
+                               headers=headers, json=payload, timeout=15)
+            if resp.status_code != 200:
+                break
             title = resp.json()["choices"][0]["message"]["content"].strip()
             title = title.strip('"').strip("'").strip()
-            if title and len(title) > 10 and title not in recent_titles:
+            if len(title) > 10 and _title_is_fresh(title, past):
                 print(f"✅ AI Title: {title}")
                 return title
+            print(f"⚠️ AI title too close to an old one, retrying: {title}")
     except Exception as e:
         print(f"⚠️ AI title failed, using template: {e}")
 
-    # Topic itself is a safe, on-topic fallback
-    if topic and topic not in recent_titles:
-        return topic
+    # Topic itself (optionally with the format) is a safe, on-topic fallback
+    candidates = [topic] if topic else []
+    if topic and video_format:
+        candidates.append(f"{topic}: {video_format['name']}")
+    for c in candidates:
+        if _title_is_fresh(c, past):
+            return c
 
-    for _ in range(15):
+    title = candidates[-1] if candidates else None
+    for _ in range(30):
         template = random.choice(VIRAL_HOOKS)
-        title = template.format(
+        candidate = template.format(
             days=random.choice(DAYS),
             num=random.choice(NUMS),
             minutes=random.choice(MINUTES),
             platform=platform,
             wallet=wallet,
         )
-        if title not in recent_titles:
-            return title
+        if _title_is_fresh(candidate, past):
+            return candidate
+        title = title or candidate
     return title
 
 
-def get_random_elements(topic: str = None):
+def get_random_elements(topic: str = None, video_format: dict = None):
     """Get all random elements for a unique video. Title is generated for `topic`."""
+    from brain.uniqueness import pick_fresh
     topic = topic or get_trending_topic()
     wallet = random.choice(WALLETS)
     platform = random.choice(PLATFORMS)
     return {
         "topic": topic,
-        "title": generate_viral_title(topic, platform=platform, wallet=wallet),
+        "title": generate_viral_title(topic, platform=platform, wallet=wallet, video_format=video_format),
+        "format": video_format,
         "wallet": wallet,
         "platform": platform,
         "days": random.choice(DAYS),
         "num": random.choice(NUMS),
-        "intro": random.choice(INTROS),
-        "section_hook": random.choice(SECTION_HOOKS),
-        "outro": random.choice(OUTROS),
+        # Style references only — the script writes its own fresh intro/outro
+        "intro": pick_fresh("intro_style", INTROS),
+        "section_hook": pick_fresh("section_hook", SECTION_HOOKS),
+        "outro": pick_fresh("outro_style", OUTROS),
         "affiliate_link": AFFILIATE_LINK,
     }

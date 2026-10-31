@@ -6,6 +6,7 @@ from advanced_voice_gen import generate_advanced_voiceover, get_audio_duration
 from advanced_thumbnail_gen import generate_advanced_thumbnail
 from advanced_video_gen import build_advanced_video
 from brain.analytics_brain import get_smart_topic, record_video, check_and_learn
+from brain.uniqueness import pick_fresh, record_video_memory, uniqueness_report
 from brain.global_intelligence import (
     build_global_intelligence,
     enhance_script_data,
@@ -40,7 +41,7 @@ def make_complete_video():
         )
 
         logger.info("📝 Step 3/9: AI Script Laboratory (5+ min)...")
-        data = generate_advanced_script(topic=topic, intelligence=intelligence)
+        data = generate_advanced_script(topic=topic, intelligence=intelligence, video_format=bd.get("format"))
         data = enhance_script_data(data, intelligence)
         title = data["title"]; result["title"] = title
         logger.info(f"   {title} | {len(data['script'].split())} words")
@@ -51,6 +52,10 @@ def make_complete_video():
         logger.info(f"   Scores: {content_gate['scores']}")
         if not content_gate["approved"]:
             raise RuntimeError("Quality gate failed: " + "; ".join(content_gate["blockers"]))
+        uniq = data.get("uniqueness") or uniqueness_report(data)
+        logger.info(f"   Uniqueness: overlap with past scripts {uniq['script_overlap']:.0%} | format: {data['format']['name']}")
+        if not uniq["unique"]:
+            raise RuntimeError("Uniqueness gate failed: " + "; ".join(uniq["problems"]))
 
         logger.info("🎙️  Step 5/9: Natural Voice...")
         update_studio_dashboard("voice_generation")
@@ -93,13 +98,22 @@ def make_complete_video():
             "money growth concept", "blockchain network visualization", "crypto trader desk setup",
             "wallet app interface", "banking technology future",
         ]
-        total_needed = max(4, int(dur/40) + 2)
-        primary_q = random.choice(query_pool)
-        secondary_q = random.choice([q for q in query_pool if q != primary_q])
-        half = max(2, total_needed // 2)
-        clips = fetch_pexels_videos(primary_q, half, clip_dir)
-        clips += fetch_pexels_videos(secondary_q, total_needed - len(clips), clip_dir)
-        logger.info(f"   {len(clips)} clips")
+        # Enough footage that no shot repeats inside the video (~1 clip per 12s),
+        # from this video's own scene visuals first, then least-used pool queries
+        total_needed = max(6, int(dur / 12))
+        scene_queries = [s.get("visual") for s in data.get("scenes", []) if s.get("visual")]
+        queries = list(dict.fromkeys([q for q in [data.get("search_query")] + scene_queries if q]))
+        clips, used_queries = [], []
+        for _ in range(12):
+            if len(clips) >= total_needed:
+                break
+            q = queries.pop(0) if queries else pick_fresh("clip_query", query_pool)
+            if q in used_queries:
+                q = pick_fresh("clip_query", [x for x in query_pool if x not in used_queries] or query_pool)
+            used_queries.append(q)
+            exclude = {os.path.basename(c)[7:-4] for c in clips}
+            clips += fetch_pexels_videos(q, min(5, total_needed - len(clips)), clip_dir, exclude_ids=exclude)
+        logger.info(f"   {len(clips)} unique clips from {len(used_queries)} searches")
 
         logger.info("🎞️  Step 8/9: Building Video...")
         update_studio_dashboard("rendering")
@@ -147,7 +161,8 @@ def make_complete_video():
 
         logger.info("🖼️  Step 9/9: AI Thumbnail + Upload Brain...")
         os.makedirs(THUMBS_DIR, exist_ok=True)
-        thumb = generate_advanced_thumbnail(title, run_id, THUMBS_DIR, force_palette=palette, gender=persona_gender)
+        # Thumbnail carries the short curiosity text, so it adds to the title instead of repeating it
+        thumb = generate_advanced_thumbnail(data.get("thumbnail_text") or title, run_id, THUMBS_DIR, force_palette=palette, gender=persona_gender)
 
         logger.info("⬆️  Uploading...")
         update_studio_dashboard("uploading")
@@ -155,13 +170,17 @@ def make_complete_video():
         if video_id:
             _pin_comment(video_id, data.get("comment",""))
             record_video(title, topic, video_id, title[:30], palette)
+            record_video_memory(data, extra={
+                "clip_id": [os.path.basename(c)[7:-4] for c in clips if os.path.basename(c).startswith("pexels_")],
+                "clip_query": used_queries,
+            })
             check_and_learn()
             update_studio_dashboard("uploaded", intelligence)
             result.update({"success": True, "video_id": video_id})
             log_video(title, topic, video_id, video_path, status="uploaded")
             logger.info(f"✅ https://youtube.com/watch?v={video_id} ({dur/60:.1f}min | {mood})")
             try:
-                sp = create_short(clips[:5], audio_path, title, run_id)
+                sp = create_short(clips[:5], audio_path, title, run_id, hook=data.get("thumbnail_text"))
                 if sp:
                     sid = upload_short(sp, title, data["description"], data["tags"])
                     if sid: result["short_id"] = sid; logger.info(f"📱 https://youtube.com/shorts/{sid}")

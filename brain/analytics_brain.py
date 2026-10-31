@@ -116,18 +116,17 @@ def check_and_learn(youtube_api_key: str = None):
 
 
 def get_smart_topic() -> dict:
-    """Smart topic selection based on what has NOT been done recently."""
+    """Pick a topic + video format combination that has never been made before."""
+    from brain.trend_engine import TRENDING_TOPICS
+    from brain.uniqueness import pick_angle, format_details
+
     brain = _load_brain()
 
-    # Avoid last 30 used topics
+    # Avoid last 30 used topics, and never repeat a topic+format pair
     recent_topics = [v.get("topic", "") for v in brain.get("uploaded_videos", [])[-30:]]
-    from brain.trend_engine import TRENDING_TOPICS
     pool = list(dict.fromkeys(list(ALL_TOPICS) + list(TRENDING_TOPICS)))
-    available = [t for t in pool if t not in recent_topics]
-    if not available:
-        available = pool
-
-    topic = random.choice(available)
+    topic, fmt = pick_angle(pool, recent_topics)
+    video_format = format_details(fmt)
 
     # Use best performing palette if we know it, else rotate
     best_palette = brain.get("best_palette")
@@ -143,7 +142,7 @@ def get_smart_topic() -> dict:
         recommended_palette = random.choice(PALETTES)
 
     video_num = brain.get("video_count", 0) + 1
-    print(f"🧠 Brain: Video #{video_num} | Topic chosen | Palette: {recommended_palette}")
+    print(f"🧠 Brain: Video #{video_num} | Format: {video_format['name']} | Palette: {recommended_palette}")
     if best_palette:
         print(f"   Best performing palette so far: {best_palette}")
 
@@ -151,4 +150,5 @@ def get_smart_topic() -> dict:
         "topic": topic,
         "recommended_palette": recommended_palette,
         "video_number": video_num,
+        "format": video_format,
     }

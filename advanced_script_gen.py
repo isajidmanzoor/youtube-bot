@@ -13,6 +13,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from brain.trend_engine import get_random_elements, AFFILIATE_LINK
+from brain.uniqueness import seen, uniqueness_report, FORMATS, format_details
 
 try:
     from config import GROQ_API_KEY, GROQ_MODEL
@@ -21,10 +22,15 @@ except ImportError:
     GROQ_MODEL = "openai/gpt-oss-120b"
 
 
-def generate_advanced_script(topic: str = None, intelligence: dict | None = None):
-    """Generate a complete 5+ minute video script with scenes."""
+DISCLOSURE = "(Affiliate link - I may earn a commission at no extra cost to you.)"
+MAX_ATTEMPTS = 3
+
+
+def generate_advanced_script(topic: str = None, intelligence: dict | None = None, video_format: dict | None = None):
+    """Generate a complete 5+ minute curiosity-driven script that repeats nothing from past videos."""
+    video_format = video_format or format_details(random.choice(FORMATS))
     # Title is generated for the chosen topic, so title and script always match
-    e = get_random_elements(topic)
+    e = get_random_elements(topic, video_format)
 
     intelligence_prompt = _format_intelligence_for_prompt(intelligence) if intelligence else ""
 
@@ -35,70 +41,106 @@ def generate_advanced_script(topic: str = None, intelligence: dict | None = None
         news = get_latest_crypto_news(limit=3)
         if news:
             news_list = "\n".join(f"- {n}" for n in news)
-            news_prompt = f"\n\nIMPORTANT: Reference at least one of these real recent crypto news events naturally in your script (in the hook or 'why now' section, as context that the space is active right now):\n{news_list}\n"
+            news_prompt = f"\n\nIMPORTANT: Reference at least one of these real recent crypto news events naturally in your script (as context that the space is active right now):\n{news_list}\n"
     except Exception:
         pass
 
-    prompt = f"""You are an elite YouTube scriptwriter for an honest crypto education channel.
+    feedback = ""
+    best = None
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        prompt = _build_prompt(e, video_format, intelligence_prompt, news_prompt, feedback)
+        data = _call_model(prompt, temperature=min(1.1, 0.92 + 0.08 * (attempt - 1)))
+        if not data:
+            break
+        data = _finalize(data, e, video_format, intelligence)
+        report = data["uniqueness"]
+        if report["unique"]:
+            return data
+        print(f"⚠️ Draft {attempt} repeats past content: {'; '.join(report['problems'])}")
+        if best is None or report["script_overlap"] < best["uniqueness"]["script_overlap"]:
+            best = data
+        feedback = ("\n\nYOUR PREVIOUS DRAFT WAS REJECTED because it repeated past videos: "
+                    + "; ".join(report["problems"])
+                    + ". Write a completely different opening line, curiosity question, thumbnail text, on-screen text and wording.")
+
+    # Caller blocks the upload if even the best draft still repeats past content
+    if best:
+        return best
+    return _finalize(_fallback(e, video_format, intelligence), e, video_format, intelligence)
+
+
+def _build_prompt(e, video_format, intelligence_prompt, news_prompt, feedback):
+    past_openings = "\n".join(f"- {o}" for o in seen("opening")[-15:]) or "- none yet"
+    past_questions = "\n".join(f"- {q}" for q in seen("curiosity_question")[-15:]) or "- none yet"
+    past_thumbs = ", ".join(seen("thumbnail_text")[-20:]) or "none yet"
+    sections = "\n".join(f"{i}. {s}" for i, s in enumerate(video_format["sections"], 1))
+
+    return f"""You are an elite YouTube scriptwriter for an honest crypto education channel.
 Create a DETAILED 5-minute video script (750-850 words) about: "{e['topic']}"
 
 Use this EXACT title: "{e['title']}"
-Start with this EXACT intro: "{e['intro']}"
-End with this EXACT outro: "{e['outro']}"
-Include this section hook naturally: "{e['section_hook']}"
 
-The script should cover:
-1. HOOK (0:00-0:30) - Open with the most useful or surprising fact about the topic; deliver on the title fast
-2. WHY NOW (0:30-1:00) - Why this matters right now (use the news context if given)
-3. THE BASICS (1:00-1:45) - Explain the core idea simply for beginners
-4. STEP BY STEP GUIDE (1:45-3:00) - Concrete steps for {e['platform']} using {e['wallet']}
-5. PRO TIPS (3:00-3:45) - Practical strategies to improve eligibility, without guaranteeing results
-6. MISTAKES TO AVOID (3:45-4:15) - Common pitfalls and scams
-7. REALITY CHECK (4:15-4:45) - Honest expectations: costs, time, risk, and that many people earn little or nothing
-8. CALL TO ACTION (4:45-5:00) - Point to the description link (affiliate) and ask a question for the comments
+VIDEO FORMAT: {video_format['name']}
+{video_format['structure']}
+Sections, in order:
+{sections}
+Where it fits, use {e['platform']} and {e['wallet']} as the concrete example.
 
-Voice style: Energetic, conversational, like a knowledgeable friend. Use "you" frequently. Short sentences.
-NO robotic language. Every 30 seconds give the viewer a new concrete detail so they keep watching.
+CURIOSITY ENGINE (this is what keeps people watching):
+- Sentence 1 IS the hook: a precise, surprising question or contrast about the topic. No greeting, no "welcome back", no channel intro.
+- Within the first 15 seconds, promise what the viewer will know by the end (the open loop).
+- Every 45-60 seconds, close one small loop and open the next one ("but that is not the part that catches most people...").
+- Tease the strongest point early and reveal it late, right before the call to action.
+- Every question you open MUST be answered inside this video. Never tease something the video does not deliver.
+- Use concrete details, not vague hype. Short sentences. Talk to "you".
+- Section hook you may adapt: "{e['section_hook']}"
+- Intro style reference (do NOT copy it): "{e['intro']}"
+- Outro style reference (do NOT copy it): "{e['outro']}"
+- The final lines must say the link in the description is an affiliate link and that you may earn a commission, then invite a comment.
+
+NEVER REPEAT THE CHANNEL'S PAST VIDEOS:
+Opening lines already used (do not reuse their wording or structure):
+{past_openings}
+Curiosity questions already used:
+{past_questions}
+Thumbnail texts already used: {past_thumbs}
+
 HONESTY RULES (YouTube removes or buries channels that break these):
 - The narrator is a guide, not a success story. NEVER claim personal earnings, withdrawals, screenshots, receipts, or "I made $X".
 - Never promise profits, "free money", "no investment needed", or guaranteed results. Mention gas fees and time cost.
 - Do not invent specific project names, dates, or reward amounts that are not in the news context.
 - Warn viewers to verify official links, never share seed phrases, and avoid airdrops that ask for upfront payments.
-{intelligence_prompt}{news_prompt}
+{intelligence_prompt}{news_prompt}{feedback}
 
 Return ONLY this exact JSON format:
 {{
   "title": "{e['title']}",
+  "curiosity_question": "the one question the hook opens and the ending answers",
+  "payoff": "one sentence: the answer revealed at the end",
+  "thumbnail_text": "2-4 punchy words, different from the title, no dollar amounts",
   "script": "FULL SCRIPT HERE - 750-850 words",
   "scenes": [
-    {{"time": "0:00", "scene": "Hook", "visual": "crypto wallet on phone", "text_overlay": "WATCH THIS FIRST"}},
-    {{"time": "0:30", "scene": "WhyNow", "visual": "crypto news headlines", "text_overlay": "WHY IT MATTERS NOW"}},
-    {{"time": "1:00", "scene": "Education", "visual": "blockchain network", "text_overlay": "THE BASICS"}},
-    {{"time": "1:45", "scene": "Tutorial", "visual": "{e['wallet']} wallet", "text_overlay": "STEP 1"}},
-    {{"time": "2:30", "scene": "Tutorial2", "visual": "{e['platform']} network", "text_overlay": "STEP 2"}},
-    {{"time": "3:00", "scene": "ProTips", "visual": "checklist on laptop", "text_overlay": "PRO TIP"}},
-    {{"time": "3:45", "scene": "Mistakes", "visual": "warning sign", "text_overlay": "AVOID THIS"}},
-    {{"time": "4:15", "scene": "RealityCheck", "visual": "person thinking at laptop", "text_overlay": "REALITY CHECK"}},
-    {{"time": "4:45", "scene": "CTA", "visual": "link in description", "text_overlay": "LINK IN DESCRIPTION"}}
+    {{"time": "0:00", "scene": "section name", "visual": "2-4 word stock footage search", "text_overlay": "max 6 words, written for THIS video"}}
   ],
-  "description": "Learn {e['topic'].lower()} on {e['platform']} using {e['wallet']} - step by step, with the risks explained. Educational only, not financial advice; results are not guaranteed.\\n\\n⏱️ TIMESTAMPS\\n0:00 - Intro\\n0:30 - Why It Matters Now\\n1:00 - The Basics\\n1:45 - Step by Step Tutorial\\n3:00 - Pro Tips\\n3:45 - Mistakes to Avoid\\n4:15 - Reality Check\\n4:45 - Next Steps\\n\\n🔗 PLATFORM I MENTION:\\n👉 https://i.mec.me/?c=pt6wsw2v\\n(Affiliate link - I may earn a commission at no extra cost to you.)\\n\\n🛡️ SAFETY\\n• Verify official links first\\n• Never share your seed phrase\\n• Never pay to receive an airdrop\\n\\n🔔 Subscribe for practical crypto guides!\\n\\n#CryptoAirdrop #CryptoEducation #CryptoSafety #{e['platform']} #{e['wallet'].replace(' ','')} #Web3",
-  "tags": ["crypto airdrop", "{e['topic'].lower()[:30]}", "{e['wallet'].lower()}", "{e['platform'].lower()} airdrop", "airdrop guide", "crypto for beginners", "crypto safety", "airdrop tutorial", "web3", "crypto tutorial"],
-  "search_query": "{e['platform'].lower()} crypto blockchain technology",
-  "comment": "What part of {e['topic'].lower()} should I cover next? 👇\\n\\n🔗 Platform from the video (affiliate): https://i.mec.me/?c=pt6wsw2v\\n🛡️ Verify official links, never share your seed phrase, never pay upfront."
-}}"""
+  "description_intro": "2 sentences that make someone want to watch, honest and specific to this video",
+  "tags": ["10 specific tags"],
+  "search_query": "2-4 word stock footage search for the main visual",
+  "comment_question": "one specific question to ask viewers in the comments"
+}}
+Give 8-10 scenes: one or two per section, in order, with times spread across 0:00-5:00."""
 
+
+def _call_model(prompt: str, temperature: float = 0.92):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
-
     payload = {
         "model": GROQ_MODEL, "reasoning_effort": "low",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 4000,
-        "temperature": 0.92,
+        "temperature": temperature,
     }
-
     try:
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
@@ -115,19 +157,61 @@ Return ONLY this exact JSON format:
             content = content.split("```")[1].split("```")[0].strip()
 
         data = json.loads(content)
-        data["topic"] = e["topic"]
-        data["elements"] = e
-        if intelligence:
-            data["intelligence"] = _compact_intelligence(intelligence)
-
-        word_count = len(data.get("script", "").split())
-        print(f"✅ Script: {data['title']}")
-        print(f"   Words: {word_count} (~{word_count // 150} min read)")
+        if not data.get("script"):
+            raise ValueError("empty script")
         return data
-
     except Exception as ex:
         print(f"❌ Script error: {ex}")
-        return _fallback(e, intelligence)
+        return None
+
+
+def _finalize(data, e, video_format, intelligence):
+    """Fill metadata (link + disclosure always present) and run the uniqueness check."""
+    data["title"] = e["title"]
+    data["topic"] = e["topic"]
+    data["format"] = video_format
+    data["elements"] = e
+    if intelligence:
+        data["intelligence"] = _compact_intelligence(intelligence)
+
+    script = data.get("script", "").strip()
+    if "affiliate" not in script[-600:].lower():
+        script += (" The link in the description is an affiliate link, so I may earn a commission"
+                   " at no extra cost to you. Tell me in the comments what you want explained next.")
+    data["script"] = script
+
+    scenes = [s for s in data.get("scenes", []) if isinstance(s, dict)]
+    for s in scenes:
+        s["text_overlay"] = str(s.get("text_overlay", "")).strip().upper()[:42]
+    data["scenes"] = scenes
+
+    timestamps = "\n".join(f"{s.get('time', '')} - {s.get('scene', '')}" for s in scenes if s.get("time"))
+    intro = data.get("description_intro") or f"{e['title']} - explained step by step, with the risks."
+    data["description"] = (
+        f"{intro}\n\nEducational only, not financial advice; results are not guaranteed.\n\n"
+        + (f"⏱️ TIMESTAMPS\n{timestamps}\n\n" if timestamps else "")
+        + f"🔗 PLATFORM I MENTION:\n👉 {AFFILIATE_LINK}\n{DISCLOSURE}\n\n"
+        "🛡️ SAFETY\n• Verify official links first\n• Never share your seed phrase\n• Never pay to receive an airdrop\n\n"
+        "🔔 Subscribe for practical crypto guides!\n\n"
+        f"#CryptoAirdrop #CryptoEducation #CryptoSafety #{e['platform']} #{e['wallet'].replace(' ', '')} #Web3"
+    )
+
+    question = data.get("comment_question") or f"What part of {e['topic'].lower()} should I cover next?"
+    data["comment"] = (f"{question} 👇\n\n🔗 Platform from the video (affiliate): {AFFILIATE_LINK}\n"
+                       "🛡️ Verify official links, never share your seed phrase, never pay upfront.")
+
+    tags = [str(t) for t in data.get("tags", []) if t]
+    for t in ["crypto airdrop", "crypto for beginners", "crypto safety", e["topic"].lower()[:30], f"{e['platform'].lower()} airdrop"]:
+        if t not in tags:
+            tags.append(t)
+    data["tags"] = tags[:15]
+    data["search_query"] = data.get("search_query") or f"{e['platform'].lower()} crypto blockchain"
+
+    data["uniqueness"] = uniqueness_report(data)
+    word_count = len(script.split())
+    print(f"✅ Script: {data['title']} | {video_format['name']}")
+    print(f"   Words: {word_count} (~{word_count // 150} min read) | overlap with past: {data['uniqueness']['script_overlap']:.0%}")
+    return data
 
 
 def _format_intelligence_for_prompt(intelligence: dict) -> str:
@@ -171,8 +255,11 @@ def _compact_intelligence(intelligence: dict) -> dict:
     }
 
 
-def _fallback(e, intelligence: dict | None = None):
-    script = f"""{e['intro']}
+def _fallback(e, video_format: dict | None = None, intelligence: dict | None = None):
+    question = f"What actually decides whether {e['topic'].lower()} works out for you, or costs you money?"
+    script = f"""{question} Stay with me, because the answer is not the one most people expect, and I will give it to you before the end.
+
+{e['intro']}
 
 Today we are diving deep into {e['topic']}. I will keep it practical, and I will be honest about the risks too.
 
@@ -196,22 +283,34 @@ Now let me talk about avoiding scams. If an airdrop asks you to send crypto to r
 
 Here is the reality check. Airdrops are not guaranteed income. You spend time and gas fees, eligibility rules change, and token prices move. Treat it as learning about crypto, and only spend what you can afford to lose. After claiming, revoke token approvals you no longer need.
 
+So, back to the question from the start. What decides the outcome is not luck or speed. It is whether you verify every link, keep a separate wallet, and treat your time and gas fees as a real cost.
+
 {e['outro']}"""
+
+    base_scenes = [
+        {"time": "0:00", "scene": "Hook", "visual": "crypto safety opener", "text_overlay": "VERIFY FIRST"},
+        {"time": "0:30", "scene": "WhyNow", "visual": "verification checklist", "text_overlay": "CHECK LINKS"},
+        {"time": "1:00", "scene": "Education", "visual": "airdrop diagram", "text_overlay": "HOW IT WORKS"},
+        {"time": "1:45", "scene": "Tutorial", "visual": "wallet setup", "text_overlay": "STEP 1"},
+        {"time": "2:30", "scene": "Tutorial2", "visual": "platform walkthrough", "text_overlay": "STEP 2"},
+        {"time": "3:00", "scene": "ProTips", "visual": "eligibility checklist", "text_overlay": "PRO TIP"},
+        {"time": "3:45", "scene": "Mistakes", "visual": "warning sign", "text_overlay": "AVOID SCAMS"},
+        {"time": "4:15", "scene": "RealityCheck", "visual": "risk check", "text_overlay": "REALITY CHECK"},
+        {"time": "4:45", "scene": "CTA", "visual": "safe next step", "text_overlay": "LINK IN DESCRIPTION"},
+    ]
+    # Format sections replace the generic hook/why-now/basics/tips/reality labels,
+    # keeping 9 scenes (the quality gate counts scenes)
+    sections = (video_format or {}).get("sections") or []
+    scenes = [dict(s) for s in base_scenes]
+    for slot, section in zip([0, 1, 2, 5, 7], sections):
+        scenes[slot].update({"scene": section, "text_overlay": section.upper()[:42]})
 
     return {
         "title": e["title"],
+        "curiosity_question": question,
+        "thumbnail_text": f"{(video_format or {}).get('name', 'The real answer').split(' (')[0]}",
         "script": script,
-        "scenes": [
-            {"time": "0:00", "scene": "Hook", "visual": "crypto safety opener", "text_overlay": "VERIFY FIRST"},
-            {"time": "0:30", "scene": "WhyNow", "visual": "verification checklist", "text_overlay": "CHECK LINKS"},
-            {"time": "1:00", "scene": "Education", "visual": "airdrop diagram", "text_overlay": "HOW IT WORKS"},
-            {"time": "1:45", "scene": "Tutorial", "visual": "wallet setup", "text_overlay": "STEP 1"},
-            {"time": "2:30", "scene": "Tutorial2", "visual": "platform walkthrough", "text_overlay": "STEP 2"},
-            {"time": "3:00", "scene": "ProTips", "visual": "eligibility checklist", "text_overlay": "PRO TIP"},
-            {"time": "3:45", "scene": "Mistakes", "visual": "warning sign", "text_overlay": "AVOID SCAMS"},
-            {"time": "4:15", "scene": "RealityCheck", "visual": "risk check", "text_overlay": "REALITY CHECK"},
-            {"time": "4:45", "scene": "CTA", "visual": "safe next step", "text_overlay": "LINK IN DESCRIPTION"},
-        ],
+        "scenes": scenes,
         "description": f"Learn {e['topic']} safely. Educational only, not financial advice; results are not guaranteed.\n\n🔗 Platform I mention:\nhttps://i.mec.me/?c=pt6wsw2v\n(Affiliate link - I may earn a commission at no extra cost to you.)\n\n🛡️ Verify official links, never share your seed phrase, never pay to receive an airdrop.\n\n#CryptoAirdrop #CryptoEducation #CryptoSafety",
         "tags": ["crypto airdrop", "airdrop guide", "crypto for beginners", "crypto safety", e["topic"].lower()[:30]],
         "search_query": f"{e['platform'].lower()} crypto blockchain",
