@@ -55,6 +55,16 @@ jobs:
           NUMEXPR_NUM_THREADS: "4"
         run: |
           for attempt in 1 2 3; do
+            # Without Groq the script falls back to a template that the uniqueness
+            # gate rejects, so wait (up to 30 min) for the Mac to reach the APIs first
+            for i in $(seq 1 30); do
+              if curl -s -m 15 -o /dev/null https://api.groq.com/openai/v1/models \
+                 && curl -s -m 15 -o /dev/null https://api.pexels.com/v1/; then
+                break
+              fi
+              echo "No internet / DNS for the APIs yet ($i/30), waiting 60s..."
+              sleep 60
+            done
             echo "Attempt $attempt of 3..."
             if python advanced_main.py; then
               echo "Success on attempt $attempt"
