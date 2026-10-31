@@ -98,6 +98,11 @@ def make_complete_video():
             "cryptocurrency mining farm", "digital transformation business", "fintech startup office",
             "money growth concept", "blockchain network visualization", "crypto trader desk setup",
             "wallet app interface", "banking technology future",
+            # Modern, stylish people (fashion / lifestyle look)
+            "stylish woman using phone city", "fashionable woman laptop cafe", "stylish young woman working laptop",
+            "trendy woman shopping phone", "elegant woman luxury car", "stylish woman rooftop city",
+            "fashionable man laptop office", "stylish man luxury car", "luxury lifestyle woman",
+            "modern woman coffee phone", "stylish couple city night", "fashion woman walking street",
         ]
         # Each scene gets its own footage, searched for what the voice says in it,
         # and enough of it (~1 clip per 10s) that no shot repeats inside the video

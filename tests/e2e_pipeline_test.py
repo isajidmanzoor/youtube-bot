@@ -485,6 +485,9 @@ check(len(reactions) == n_thumbs and len(set(reactions)) == len(reactions),
       f"every thumbnail has its own shocked face, never reused ({len(set(reactions))} faces / {n_thumbs} thumbnails)")
 rq = json.load(open(U.MEMORY_FILE)).get("reaction_query", [])
 check(all(a != b for a, b in zip(rq, rq[1:])), "reaction face search rotates (no two in a row alike)")
+import advanced_thumbnail_gen as _TG
+check(rq and all(q in _TG.STYLISH_REACTION_QUERIES for q in rq),
+      f"thumbnail faces are modern, stylish people ({sum(q in _TG.STYLISH_REACTION_QUERIES for q in rq)}/{len(rq)})")
 mains = [b for b in API["inserts"] if not b["snippet"]["title"].endswith("#Shorts")]
 check(all(len(b["snippet"]["title"]) <= 70 for b in mains), f"all titles fit in search results (max {max(len(b['snippet']['title']) for b in mains)} chars)")
 tag_chars = [sum(len(t) + (2 if " " in t else 0) for t in b["snippet"]["tags"]) + len(b["snippet"]["tags"]) - 1 for b in API["inserts"]]

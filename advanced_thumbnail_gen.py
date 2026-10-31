@@ -152,6 +152,18 @@ REACTION_QUERIES = [
     "woman gasping surprised", "worried shocked man", "confused shocked woman",
 ]
 
+# Modern, stylish, well-dressed people (fashion / lifestyle look) - tried first
+STYLISH_REACTION_QUERIES = [
+    "stylish woman surprised", "fashionable woman shocked", "trendy young woman surprised",
+    "elegant woman shocked face", "stylish woman sunglasses surprised", "fashion model surprised expression",
+    "glamorous woman surprised", "chic woman shocked looking at phone", "stylish girl amazed",
+    "modern fashionable woman wow", "trendy woman city surprised", "stylish woman blazer shocked",
+    "fashionable young woman excited", "elegant businesswoman surprised", "stylish woman hands on face",
+    "fashion influencer surprised", "stylish man surprised", "fashionable man shocked",
+    "trendy young man amazed", "stylish man suit surprised", "well dressed woman shocked",
+    "luxury lifestyle woman surprised", "stylish woman excited phone", "trendy girl mouth open",
+]
+
 
 def _face_card(photo_path, palette, height):
     """The photo cropped around the face (upper middle) as a tilted card with a glowing border."""
@@ -183,8 +195,12 @@ def _add_reaction_face(img, palette, seed_val=None):
     """
     try:
         from brain.uniqueness import pick_fresh, remember
-        query = pick_fresh("reaction_query", REACTION_QUERIES)
+        query = pick_fresh("reaction_query", STYLISH_REACTION_QUERIES)
         photo_path = _fetch_pexels_photo(query, cache_dir="output/thumbnails/_reaction_cache", kind="reaction_photo")
+        if not photo_path:
+            # Stylish searches used up or unavailable: any shocked face still beats none
+            query = pick_fresh("reaction_query", REACTION_QUERIES)
+            photo_path = _fetch_pexels_photo(query, cache_dir="output/thumbnails/_reaction_cache", kind="reaction_photo")
         if not photo_path:
             return img, False
         remember("reaction_query", query)

@@ -130,7 +130,9 @@ Return ONLY this exact JSON format:
 Give 8-10 scenes: one or two per section, in order, with times spread across 0:00-5:00.
 SCENES MUST MATCH THE VOICE: each "says" is copied word for word from the script, in script order,
 and each "visual" is a concrete thing a camera can film at that moment (e.g. "hardware wallet closeup",
-"person reading phone warning", "calendar marking date"), never an abstract idea, and never the same visual twice."""
+"person reading phone warning", "calendar marking date"), never an abstract idea, and never the same visual twice.
+When a scene shows a person, make them modern, stylish and well dressed, fashion / lifestyle look
+(e.g. "stylish woman checking phone", "fashionable man laptop cafe", "elegant woman luxury car")."""
 
 
 def _call_model(prompt: str, temperature: float = 0.92):
