@@ -26,7 +26,15 @@ jobs:
         with:
           python-version: "3.11"
       - name: System deps
-        run: brew install ffmpeg imagemagick || true
+        # Install only what is missing: Homebrew no longer has bottles for Intel Macs,
+        # so an upgrade can mean building from source for a long time on every run
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_UPGRADE: "1"
+        run: |
+          for f in ffmpeg imagemagick; do
+            brew list "$f" >/dev/null 2>&1 || brew install "$f" || true
+          done
       - name: Python packages
         run: |
           pip install -r requirements.txt
