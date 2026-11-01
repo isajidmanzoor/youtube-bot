@@ -103,6 +103,10 @@ def make_complete_video():
             "trendy woman shopping phone", "elegant woman luxury car", "stylish woman rooftop city",
             "fashionable man laptop office", "stylish man luxury car", "luxury lifestyle woman",
             "modern woman coffee phone", "stylish couple city night", "fashion woman walking street",
+            # Glamorous fashion-model look
+            "fashion model city walk", "glamorous woman luxury hotel", "woman red dress city night",
+            "fashion model photoshoot", "glamorous woman sports car", "model sunglasses rooftop",
+            "elegant woman evening dress", "fashion woman luxury shopping", "glamorous woman phone penthouse",
         ]
         # Each scene gets its own footage, searched for what the voice says in it,
         # and enough of it (~1 clip per 10s) that no shot repeats inside the video

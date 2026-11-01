@@ -152,7 +152,18 @@ REACTION_QUERIES = [
     "woman gasping surprised", "worried shocked man", "confused shocked woman",
 ]
 
-# Modern, stylish, well-dressed people (fashion / lifestyle look) - tried first
+# Glamorous fashion-model look (party dress, bold makeup, red carpet) - tried first
+GLAM_REACTION_QUERIES = [
+    "glamorous woman shocked", "fashion model shocked face", "beautiful woman surprised red lipstick",
+    "glamorous woman evening dress surprised", "woman bold makeup surprised", "fashion model wow expression",
+    "beauty model surprised face", "elegant woman red dress surprised", "luxury fashion woman shocked",
+    "model sunglasses shocked", "party dress woman surprised", "glamour portrait woman mouth open",
+    "beautiful woman shocked looking at phone", "fashion model amazed", "woman red carpet surprised",
+    "stylish woman leather jacket shocked", "beautiful young woman gasping", "glamorous woman hands on cheeks",
+    "fashion model surprised studio", "handsome man suit shocked", "male model surprised face",
+]
+
+# Modern, stylish, well-dressed people (fashion / lifestyle look)
 STYLISH_REACTION_QUERIES = [
     "stylish woman surprised", "fashionable woman shocked", "trendy young woman surprised",
     "elegant woman shocked face", "stylish woman sunglasses surprised", "fashion model surprised expression",
@@ -195,8 +206,11 @@ def _add_reaction_face(img, palette, seed_val=None):
     """
     try:
         from brain.uniqueness import pick_fresh, remember
-        query = pick_fresh("reaction_query", STYLISH_REACTION_QUERIES)
+        query = pick_fresh("reaction_query", GLAM_REACTION_QUERIES)
         photo_path = _fetch_pexels_photo(query, cache_dir="output/thumbnails/_reaction_cache", kind="reaction_photo")
+        if not photo_path:
+            query = pick_fresh("reaction_query", STYLISH_REACTION_QUERIES)
+            photo_path = _fetch_pexels_photo(query, cache_dir="output/thumbnails/_reaction_cache", kind="reaction_photo")
         if not photo_path:
             # Stylish searches used up or unavailable: any shocked face still beats none
             query = pick_fresh("reaction_query", REACTION_QUERIES)
@@ -407,6 +421,16 @@ def _fetch_pexels_photo(query, cache_dir="output/thumbnails/_prop_cache", kind=N
         return None
 
 
+def _is_grayscale(path):
+    """True when the photo has (almost) no colour, e.g. a black-and-white portrait."""
+    try:
+        hsv = Image.open(path).convert("RGB").resize((64, 64)).convert("HSV")
+        sat = list(hsv.getdata(1))
+        return sum(sat) / len(sat) < 20
+    except Exception:
+        return False
+
+
 def _fetch_fresh_photo(query, cache_dir, kind):
     """A photo for `query` whose id was never used under `kind`. Looks through up to 4 result pages."""
     import requests
@@ -421,13 +445,21 @@ def _fetch_fresh_photo(query, cache_dir, kind):
             r.raise_for_status()
             photos = r.json().get("photos", [])
             fresh = [ph for ph in photos if str(ph.get("id")) not in used]
-            if fresh:
-                photo = random.choice(fresh[:15])  # the first results match the search best
+            if kind == "reaction_photo":
+                # Faces in full colour: black-and-white portraits look flat on a thumbnail
+                fresh = [ph for ph in fresh if not any(w in str(ph.get("alt", "")).lower()
+                                                       for w in ("black and white", "monochrome", "grayscale", "greyscale"))]
+            head = fresh[:15]  # the first results match the search best
+            random.shuffle(head)
+            for photo in head[:3]:
                 path = os.path.join(cache_dir, f"{kind}_{photo.get('id')}.jpg")
                 with open(path, "wb") as f:
                     f.write(requests.get(photo["src"]["large"], timeout=15).content)
                 remember(kind, str(photo.get("id")))
                 _remember_photo(photo.get("id"))
+                if kind == "reaction_photo" and _is_grayscale(path):
+                    used.add(str(photo.get("id")))
+                    continue
                 return path
             if len(photos) < 40:
                 break
